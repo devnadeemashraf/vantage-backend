@@ -57,9 +57,16 @@ export class BatchProcessor {
     if (this.buffer.length === 0) return;
     const batch = this.buffer.splice(0);
 
-    // Phase 1: Upsert parent rows
+    // Phase 1: Upsert parent rows (chunked to stay under PG's 65535 param limit)
     const businessRows: BusinessRow[] = batch.map(toBusinessRow);
-    await this.db('businesses').insert(businessRows).onConflict('abn').merge();
+    const COLS = 14;
+    const MAX_ROWS_PER_INSERT = Math.floor(65535 / COLS);
+    for (let i = 0; i < businessRows.length; i += MAX_ROWS_PER_INSERT) {
+      await this.db('businesses')
+        .insert(businessRows.slice(i, i + MAX_ROWS_PER_INSERT))
+        .onConflict('abn')
+        .merge();
+    }
     this.totalInserted += batch.length;
 
     // Phase 2: Collect all business_names across the batch
