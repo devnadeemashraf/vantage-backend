@@ -22,15 +22,15 @@
  *   every consumer gets the new implementation — that's the power of DI.
  */
 import 'reflect-metadata';
-import { container } from 'tsyringe';
 
-import { TOKENS } from './types';
-import { logger } from './logger';
-
+import { IngestionService } from '@application/services/IngestionService';
+import { SearchService } from '@application/services/SearchService';
 import { getDbConnection } from '@infrastructure/database/connection';
 import { PostgresBusinessRepository } from '@infrastructure/repositories/PostgresBusinessRepository';
-import { SearchService } from '@application/services/SearchService';
-import { IngestionService } from '@application/services/IngestionService';
+import { container } from 'tsyringe';
+
+import { logger } from './logger';
+import { TOKENS } from './types';
 
 container.register(TOKENS.Logger, { useValue: logger });
 container.register(TOKENS.Knex, { useValue: getDbConnection() });

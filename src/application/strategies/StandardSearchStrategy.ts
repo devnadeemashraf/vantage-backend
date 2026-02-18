@@ -19,12 +19,12 @@
  * When the AI strategy is added later, it will implement the same
  * ISearchStrategy interface but translate natural language to SQL instead.
  */
-import { inject, injectable } from 'tsyringe';
 import { TOKENS } from '@core/types';
+import type { Business } from '@domain/entities/Business';
 import type { IBusinessRepository } from '@domain/interfaces/IBusinessRepository';
 import type { ISearchStrategy } from '@domain/interfaces/ISearchStrategy';
-import type { Business } from '@domain/entities/Business';
-import type { SearchQuery, PaginatedResult } from '@shared/types';
+import type { PaginatedResult, SearchQuery } from '@shared/types';
+import { inject, injectable } from 'tsyringe';
 
 @injectable()
 export class StandardSearchStrategy implements ISearchStrategy {

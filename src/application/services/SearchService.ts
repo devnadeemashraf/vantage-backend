@@ -19,13 +19,13 @@
  * The service is @injectable so the DI container wires it up automatically;
  * controllers resolve it via TOKENS.SearchService.
  */
-import { inject, injectable } from 'tsyringe';
-import { TOKENS } from '@core/types';
-import type { IBusinessRepository } from '@domain/interfaces/IBusinessRepository';
-import type { Business } from '@domain/entities/Business';
-import type { SearchQuery, PaginatedResult } from '@shared/types';
 import { SearchStrategyFactory } from '@application/factories/SearchStrategyFactory';
+import { TOKENS } from '@core/types';
+import type { Business } from '@domain/entities/Business';
+import type { IBusinessRepository } from '@domain/interfaces/IBusinessRepository';
 import { NotFoundError } from '@shared/errors/AppError';
+import type { PaginatedResult, SearchQuery } from '@shared/types';
+import { inject, injectable } from 'tsyringe';
 
 @injectable()
 export class SearchService {

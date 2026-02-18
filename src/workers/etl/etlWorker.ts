@@ -31,15 +31,16 @@
  *
  * The stream pipeline: FileReadStream → SAX Parser → Adapter → BatchProcessor → PostgreSQL
  */
-import { parentPort, workerData } from 'worker_threads';
 import { createReadStream } from 'fs';
 import sax from 'sax';
+import { parentPort, workerData } from 'worker_threads';
+
+import { BatchProcessor } from './batchProcessor';
 import {
-  XmlDataSourceAdapter,
   createEmptyRawRecord,
   type RawAbrRecord,
+  XmlDataSourceAdapter,
 } from './XmlDataSourceAdapter';
-import { BatchProcessor } from './batchProcessor';
 
 const { filePath, dbConfig, batchSize } = workerData as {
   filePath: string;

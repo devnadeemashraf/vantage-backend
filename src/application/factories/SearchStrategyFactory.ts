@@ -20,16 +20,14 @@
  * The factory receives the repository via DI (@inject) and passes it to
  * whichever strategy it constructs, keeping strategies stateless and testable.
  */
-import { inject, injectable } from 'tsyringe';
+import { StandardSearchStrategy } from '@application/strategies/StandardSearchStrategy';
 import { TOKENS } from '@core/types';
 import type { ISearchStrategy } from '@domain/interfaces/ISearchStrategy';
-import { StandardSearchStrategy } from '@application/strategies/StandardSearchStrategy';
 import { AppError } from '@shared/errors/AppError';
+import { inject, injectable } from 'tsyringe';
 @injectable()
 export class SearchStrategyFactory {
-  constructor(
-    @inject(TOKENS.BusinessRepository) private _repo: unknown,
-  ) {}
+  constructor(@inject(TOKENS.BusinessRepository) private _repo: unknown) {}
 
   create(mode: 'standard' | 'ai' = 'standard'): ISearchStrategy {
     switch (mode) {

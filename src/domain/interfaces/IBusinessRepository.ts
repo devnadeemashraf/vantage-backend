@@ -21,7 +21,7 @@
  */
 import type { Business, BusinessRow } from '@domain/entities/Business';
 import type { BusinessNameRow } from '@domain/entities/BusinessName';
-import type { SearchQuery, PaginatedResult } from '@shared/types';
+import type { PaginatedResult, SearchQuery } from '@shared/types';
 
 export interface IBusinessRepository {
   /** Insert or update businesses in bulk. Returns the number of rows affected. */

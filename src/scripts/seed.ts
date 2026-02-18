@@ -28,10 +28,11 @@
  * BatchProcessor as the HTTP path — no code duplication.
  */
 import 'dotenv/config';
-import { Worker } from 'worker_threads';
-import path from 'path';
-import fs from 'fs';
+
 import { config } from '@core/config';
+import fs from 'fs';
+import path from 'path';
+import { Worker } from 'worker_threads';
 
 // ---------------------------------------------------------------------------
 // CLI argument parsing

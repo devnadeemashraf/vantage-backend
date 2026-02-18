@@ -25,14 +25,14 @@
  * process to preload the tsx transpiler, so it can execute .ts files
  * directly without a prior build step.
  */
+import { config } from '@core/config';
+import type { Logger } from '@core/logger';
+import { TOKENS } from '@core/types';
+import { AppError } from '@shared/errors/AppError';
+import type { IngestionResult } from '@shared/types';
+import path from 'path';
 import { inject, injectable } from 'tsyringe';
 import { Worker } from 'worker_threads';
-import path from 'path';
-import { TOKENS } from '@core/types';
-import type { Logger } from '@core/logger';
-import { config } from '@core/config';
-import type { IngestionResult } from '@shared/types';
-import { AppError } from '@shared/errors/AppError';
 @injectable()
 export class IngestionService {
   constructor(@inject(TOKENS.Logger) private log: Logger) {}

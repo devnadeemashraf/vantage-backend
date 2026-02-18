@@ -10,8 +10,8 @@
  * script (npm run seed) is the primary way to trigger ingestion; this
  * HTTP endpoint exists for programmatic/remote triggering.
  */
-import { Router } from 'express';
 import { IngestionController } from '@interfaces/http/controllers/IngestionController';
+import { Router } from 'express';
 
 const router = Router();
 const controller = new IngestionController();

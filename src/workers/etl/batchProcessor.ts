@@ -27,9 +27,9 @@
  *   event loop, and cannot share objects (including TCP sockets) with the
  *   main thread. So the worker creates its own small pool (min:1, max:3).
  */
-import knex, { Knex } from 'knex';
 import type { Business, BusinessRow } from '@domain/entities/Business';
 import type { BusinessNameRow } from '@domain/entities/BusinessName';
+import knex, { Knex } from 'knex';
 
 interface DbConfig {
   host: string;

@@ -22,9 +22,9 @@
  * `destroyDbConnection()` is called during graceful shutdown (SIGTERM)
  * to cleanly close all connections before the process exits.
  */
-import knex, { Knex } from 'knex';
 import { config } from '@core/config';
 import { logger } from '@core/logger';
+import knex, { Knex } from 'knex';
 
 let instance: Knex | null = null;
 export function getDbConnection(): Knex {

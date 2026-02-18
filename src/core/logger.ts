@@ -18,6 +18,7 @@
  * without coupling to Pino directly — useful for testing with a mock logger.
  */
 import pino from 'pino';
+
 import { config } from './config';
 
 export const logger = pino({

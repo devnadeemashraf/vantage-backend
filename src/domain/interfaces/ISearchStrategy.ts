@@ -19,7 +19,7 @@
  * the app never has to know which algorithm is running under the hood.
  */
 import type { Business } from '@domain/entities/Business';
-import type { SearchQuery, PaginatedResult } from '@shared/types';
+import type { PaginatedResult, SearchQuery } from '@shared/types';
 
 export interface ISearchStrategy {
   execute(query: SearchQuery): Promise<PaginatedResult<Business>>;

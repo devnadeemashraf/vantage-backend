@@ -25,17 +25,17 @@
  * container is bootstrapped before any route handler tries to resolve
  * dependencies from it.
  */
+import '@core/container';
+
+import { errorHandler } from '@interfaces/http/middleware/errorHandler';
+import { requestLogger } from '@interfaces/http/middleware/requestLogger';
+import { businessRoutes } from '@interfaces/http/routes/businessRoutes';
+import { healthRoutes } from '@interfaces/http/routes/healthRoutes';
+import { ingestionRoutes } from '@interfaces/http/routes/ingestionRoutes';
+import compression from 'compression';
+import cors from 'cors';
 import express from 'express';
 import helmet from 'helmet';
-import cors from 'cors';
-import compression from 'compression';
-
-import '@core/container';
-import { requestLogger } from '@interfaces/http/middleware/requestLogger';
-import { errorHandler } from '@interfaces/http/middleware/errorHandler';
-import { businessRoutes } from '@interfaces/http/routes/businessRoutes';
-import { ingestionRoutes } from '@interfaces/http/routes/ingestionRoutes';
-import { healthRoutes } from '@interfaces/http/routes/healthRoutes';
 
 export function createApp(): express.Express {
   const app = express();

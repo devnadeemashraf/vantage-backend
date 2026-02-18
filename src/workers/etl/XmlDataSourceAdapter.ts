@@ -24,9 +24,9 @@
  * The `createEmptyRawRecord()` factory resets the clipboard for each new
  * <ABR> element the parser encounters.
  */
-import type { IDataSourceAdapter } from '@domain/interfaces/IDataSourceAdapter';
 import type { Business } from '@domain/entities/Business';
 import type { BusinessName } from '@domain/entities/BusinessName';
+import type { IDataSourceAdapter } from '@domain/interfaces/IDataSourceAdapter';
 
 /**
  * Raw intermediate representation of an ABR XML record.

@@ -23,9 +23,9 @@
  * (err, req, res, next). If it had three, Express would treat it as regular
  * middleware and skip it for errors.
  */
-import type { Request, Response, NextFunction } from 'express';
-import { AppError } from '@shared/errors/AppError';
 import { logger } from '@core/logger';
+import { AppError } from '@shared/errors/AppError';
+import type { NextFunction, Request, Response } from 'express';
 export function errorHandler(err: Error, _req: Request, res: Response, _next: NextFunction): void {
   if (err instanceof AppError) {
     logger.warn({ statusCode: err.statusCode, message: err.message }, 'Operational error');

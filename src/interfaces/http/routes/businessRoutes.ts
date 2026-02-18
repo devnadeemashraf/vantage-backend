@@ -11,8 +11,8 @@
  * Routes are kept in separate files (one per resource) so each file stays
  * small and the route structure is easy to scan at a glance.
  */
-import { Router } from 'express';
 import { BusinessController } from '@interfaces/http/controllers/BusinessController';
+import { Router } from 'express';
 
 const router = Router();
 const controller = new BusinessController();

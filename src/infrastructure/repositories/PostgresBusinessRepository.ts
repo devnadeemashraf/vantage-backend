@@ -28,16 +28,14 @@
  * The @injectable() decorator lets tsyringe construct this class automatically,
  * injecting the Knex instance and Logger via the DI container.
  */
-import { inject, injectable } from 'tsyringe';
-import type { Knex } from 'knex';
-
-import { TOKENS } from '@core/types';
 import type { Logger } from '@core/logger';
-
-import type { IBusinessRepository } from '@domain/interfaces/IBusinessRepository';
+import { TOKENS } from '@core/types';
 import type { Business, BusinessRow } from '@domain/entities/Business';
 import type { BusinessName, BusinessNameRow } from '@domain/entities/BusinessName';
-import type { SearchQuery, PaginatedResult } from '@shared/types';
+import type { IBusinessRepository } from '@domain/interfaces/IBusinessRepository';
+import type { PaginatedResult, SearchQuery } from '@shared/types';
+import type { Knex } from 'knex';
+import { inject, injectable } from 'tsyringe';
 
 const SIMILARITY_THRESHOLD = 0.3;
 

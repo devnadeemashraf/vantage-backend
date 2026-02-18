@@ -21,9 +21,9 @@
  * On failure: throws a ValidationError (400) which the global error handler
  * catches and returns to the client. The controller is never reached.
  */
-import type { Request, Response, NextFunction } from 'express';
-import type { z } from 'zod/v4';
 import { ValidationError } from '@shared/errors/AppError';
+import type { NextFunction, Request, Response } from 'express';
+import type { z } from 'zod/v4';
 export function validate<T extends z.ZodType>(schema: T, source: 'query' | 'body' | 'params') {
   return (req: Request, _res: Response, next: NextFunction): void => {
     const result = schema.safeParse(req[source]);

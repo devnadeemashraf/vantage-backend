@@ -10,7 +10,7 @@
  * It reuses the same Pino logger instance from core/logger.ts, so log
  * format (JSON in prod, pretty in dev) is consistent across the entire app.
  */
-import pinoHttp from 'pino-http';
 import { logger } from '@core/logger';
+import pinoHttp from 'pino-http';
 
 export const requestLogger = pinoHttp({ logger });

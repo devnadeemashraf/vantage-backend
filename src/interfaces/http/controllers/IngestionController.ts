@@ -14,11 +14,11 @@
  * middleware (admin-only) since triggering a full ETL run is an expensive
  * operation.
  */
-import type { Request, Response } from 'express';
+import { IngestionService } from '@application/services/IngestionService';
 import { container } from '@core/container';
 import { TOKENS } from '@core/types';
-import { IngestionService } from '@application/services/IngestionService';
 import { ValidationError } from '@shared/errors/AppError';
+import type { Request, Response } from 'express';
 
 export class IngestionController {
   private service: IngestionService;

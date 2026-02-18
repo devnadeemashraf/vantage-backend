@@ -20,11 +20,11 @@
  * methods so that `this` is lexically bound — Express can call them as
  * standalone callbacks without losing the class context.
  */
-import type { Request, Response } from 'express';
+import { SearchService } from '@application/services/SearchService';
 import { container } from '@core/container';
 import { TOKENS } from '@core/types';
-import { SearchService } from '@application/services/SearchService';
 import { DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE } from '@shared/constants';
+import type { Request, Response } from 'express';
 
 export class BusinessController {
   private service: SearchService;
