@@ -9,6 +9,8 @@
     "start": "node dist/server.js",
     "migrate": "knex migrate:latest --knexfile knexfile.ts",
     "migrate:rollback": "knex migrate:rollback --knexfile knexfile.ts",
+    "seed": "tsx src/scripts/seed.ts",
+    "seed:migrate": "tsx src/scripts/seed.ts --migrate",
     "lint": "eslint src/",
     "format": "prettier --write \"src/**/*.ts\""
   },
