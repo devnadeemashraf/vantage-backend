@@ -1,3 +1,32 @@
+/**
+ * Batch Processor — Buffered Bulk Insert Engine
+ * Layer: Workers (ETL)
+ *
+ * When ingesting hundreds of thousands of records, inserting one row at a time
+ * would be like mailing letters one by one instead of filling a mailbag and
+ * sending them all at once. This class buffers entities in memory and flushes
+ * them to PostgreSQL in large batches for dramatically better throughput.
+ *
+ * The flush operation is a multi-phase process:
+ *
+ *   Phase 1: Upsert parent rows (businesses table)
+ *     - INSERT ... ON CONFLICT (abn) MERGE — if the ABN already exists, the
+ *       row is updated instead of duplicated. This makes re-runs idempotent.
+ *     - Rows are chunked to stay under PostgreSQL's hard limit of 65,535
+ *       bind parameters per query. With 14 columns per business row, that's
+ *       ~4,681 rows per INSERT. Exceeding this limit causes a cryptic
+ *       "bind message has X parameter formats but 0 parameters" error.
+ *
+ *   Phase 2-5: Link and insert child rows (business_names table)
+ *     - Fetch the DB-assigned IDs for the ABNs we just upserted.
+ *     - Delete existing names (so re-runs don't create duplicates).
+ *     - Insert fresh name rows linked by business_id.
+ *
+ * Why does the worker own its own Knex connection pool?
+ *   Worker threads run in a separate V8 isolate — they have their own heap,
+ *   event loop, and cannot share objects (including TCP sockets) with the
+ *   main thread. So the worker creates its own small pool (min:1, max:3).
+ */
 import knex, { Knex } from 'knex';
 import type { Business, BusinessRow } from '@domain/entities/Business';
 import type { BusinessNameRow } from '@domain/entities/BusinessName';

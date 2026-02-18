@@ -1,3 +1,24 @@
+/**
+ * Business Repository Interface — The Data Access Contract
+ * Layer: Domain
+ * Pattern: Repository Pattern
+ *
+ * This interface defines WHAT data operations the app needs, without saying
+ * HOW they are performed. Think of it as a **menu at a restaurant**: it lists
+ * every dish (operation) you can order, but says nothing about the kitchen
+ * (database engine) that prepares them.
+ *
+ * Why does the Domain layer own this interface?
+ *   This is the core principle of Clean Architecture's Dependency Rule:
+ *   inner layers define contracts, outer layers implement them.
+ *   The domain says "I need a way to search businesses" — the infrastructure
+ *   layer (PostgresBusinessRepository) decides to use PostgreSQL with GIN
+ *   indexes to fulfil that contract. If we migrated to Elasticsearch tomorrow,
+ *   only the implementation changes; every consumer of this interface stays
+ *   untouched.
+ *
+ * Each method is documented inline below with its purpose.
+ */
 import type { Business, BusinessRow } from '@domain/entities/Business';
 import type { BusinessNameRow } from '@domain/entities/BusinessName';
 import type { SearchQuery, PaginatedResult } from '@shared/types';

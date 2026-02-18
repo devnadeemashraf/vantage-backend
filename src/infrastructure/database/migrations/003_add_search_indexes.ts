@@ -1,3 +1,39 @@
+/**
+ * Migration 003 — Search Indexes & Full-Text Trigger
+ * Layer: Infrastructure (Database)
+ *
+ * This migration is the secret sauce behind Vantage's fast search. It sets up
+ * three PostgreSQL features that work together:
+ *
+ * ┌──────────────────────────────────────────────────────────────────────────┐
+ * │ 1. pg_trgm (Trigram Extension)                                         │
+ * │    Breaks every string into 3-character chunks called "trigrams".       │
+ * │    Example: "Plumbing" → {" Pl","Plu","lum","umb","mbi","bin","ing"}   │
+ * │    A misspelled search "Plumbng" shares most of the same trigrams,     │
+ * │    so similarity("Plumbing", "Plumbng") returns a high score (~0.7).   │
+ * │    This is how fuzzy/typo-tolerant search works.                       │
+ * │                                                                        │
+ * │ 2. tsvector + to_tsquery (Full-Text Search)                            │
+ * │    tsvector stores a pre-processed "dictionary" of words for each row. │
+ * │    "Smith's Plumbing Services" → 'plumb':2 'servic':3 'smith':1        │
+ * │    Searching for "plumber" matches "plumb" because both stem to the    │
+ * │    same root word. This is linguistic/semantic matching, not just       │
+ * │    character-level like trigrams.                                       │
+ * │                                                                        │
+ * │ 3. GIN Indexes (Generalized Inverted Index)                            │
+ * │    Like the index at the back of a textbook: instead of scanning       │
+ * │    every page (row) to find "plumbing", the GIN index maps each        │
+ * │    trigram/lexeme to the rows that contain it. This turns a full        │
+ * │    table scan into an index lookup — O(log n) instead of O(n).         │
+ * └──────────────────────────────────────────────────────────────────────────┘
+ *
+ * The trigger (`businesses_search_vector_trigger`) automatically updates the
+ * `search_vector` column whenever a row is inserted or updated — like a
+ * librarian who automatically updates the card catalog every time a new book
+ * arrives. Weights (A, B, C) control relevance: the entity_name (weight A)
+ * is considered most important, given/family names (B) less so, and
+ * state/postcode (C) are used mainly for tie-breaking.
+ */
 import type { Knex } from 'knex';
 
 export async function up(knex: Knex): Promise<void> {

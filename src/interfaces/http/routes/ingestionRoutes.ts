@@ -1,3 +1,15 @@
+/**
+ * Ingestion Routes
+ * Layer: Interfaces (HTTP)
+ *
+ * Exposes the ETL ingestion trigger via HTTP:
+ *
+ *   POST /api/v1/ingest  { "filePath": "./temp/data.xml" }
+ *
+ * This is mounted under `/api/v1` in app.ts. In practice, the seed CLI
+ * script (npm run seed) is the primary way to trigger ingestion; this
+ * HTTP endpoint exists for programmatic/remote triggering.
+ */
 import { Router } from 'express';
 import { IngestionController } from '@interfaces/http/controllers/IngestionController';
 

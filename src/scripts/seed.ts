@@ -1,14 +1,31 @@
 /**
- * Seed CLI Script
+ * Seed CLI Script — Standalone Data Ingestion Tool
+ * Layer: Entry Point (CLI, not HTTP)
  *
- * Standalone command to ingest ABR XML data directly into PostgreSQL.
- * Spawns the ETL worker thread, streams progress to the console, and
- * reports final throughput stats.
+ * This script is the primary way to load ABR XML data into the database.
+ * It runs directly from the terminal (not through the HTTP server) via:
  *
- * Usage:
- *   npm run seed                                          # uses default file
- *   npm run seed -- --file ./temp/20260211_Public20.xml   # custom file
- *   npm run seed -- --migrate                             # run migrations first
+ *   npm run seed                                               # default file
+ *   npm run seed -- --file ./temp/data/20260211_Public20.xml   # custom file
+ *   npm run seed -- --migrate                                  # run migrations first
+ *
+ * What it does:
+ *   1. Validates the XML file exists and prints its size.
+ *   2. Optionally runs database migrations (--migrate flag).
+ *   3. Spawns the ETL worker thread (same one used by the HTTP ingestion
+ *      endpoint) and streams progress to the console in real-time.
+ *   4. On completion, prints a summary with total records, duration, and
+ *      average throughput (records per second).
+ *
+ * Why a standalone script instead of just the HTTP endpoint?
+ *   - Initial data seeding (580MB+) can take minutes. A CLI script gives
+ *     you real-time progress feedback, doesn't depend on the HTTP server
+ *     being up, and can be run in CI/CD pipelines or cron jobs.
+ *   - The HTTP endpoint is better for on-demand incremental ingestion
+ *     triggered by an admin UI.
+ *
+ * The script reuses the exact same ETL worker thread (etlWorker.ts) and
+ * BatchProcessor as the HTTP path — no code duplication.
  */
 import 'dotenv/config';
 import { Worker } from 'worker_threads';
@@ -109,17 +126,14 @@ async function main(): Promise<void> {
   let lastProgressCount = 0;
 
   return new Promise<void>((resolve, reject) => {
-    const worker = new Worker(
-      path.resolve(__dirname, '../workers/etl/etlWorker.ts'),
-      {
-        workerData: {
-          filePath,
-          dbConfig: config.database,
-          batchSize: config.etl.batchSize,
-        },
-        execArgv: ['--require', 'tsx/cjs'],
+    const worker = new Worker(path.resolve(__dirname, '../workers/etl/etlWorker.ts'), {
+      workerData: {
+        filePath,
+        dbConfig: config.database,
+        batchSize: config.etl.batchSize,
       },
-    );
+      execArgv: ['--require', 'tsx/cjs'],
+    });
 
     worker.on('message', (msg: { type: string; [key: string]: unknown }) => {
       switch (msg.type) {
@@ -131,7 +145,9 @@ async function main(): Promise<void> {
           const rps = intervalMs > 0 ? Math.round((intervalRecords / intervalMs) * 1000) : 0;
           const elapsed = formatDuration(now - startTime);
 
-          log(`  [${elapsed}] ${formatNumber(processed)} records processed (${formatNumber(rps)} rec/s)`);
+          log(
+            `  [${elapsed}] ${formatNumber(processed)} records processed (${formatNumber(rps)} rec/s)`,
+          );
 
           lastProgressTime = now;
           lastProgressCount = processed;

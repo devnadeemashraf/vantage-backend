@@ -1,3 +1,29 @@
+/**
+ * XML Data Source Adapter — ABR XML → Business Entity Transformer
+ * Layer: Workers (ETL)
+ * Pattern: Adapter Pattern (implements IDataSourceAdapter<RawAbrRecord>)
+ *
+ * This file contains two things:
+ *
+ *   1. RawAbrRecord: An intermediate "bucket" that the SAX parser fills
+ *      event-by-event as it reads through the XML. Think of it as a
+ *      **clipboard** — the parser jots down each field as it encounters
+ *      it, and once the full <ABR> block is closed, the record is complete.
+ *
+ *   2. XmlDataSourceAdapter: Transforms that raw bucket into a clean
+ *      Business domain entity. The key logic is handling the ABR's two
+ *      entity types:
+ *        - IND (Individual/Sole Trader): name = "GivenName FamilyName"
+ *        - Non-IND (Company, Trust, etc.): name = the NonIndividualNameText
+ *
+ * ABR Date Format:
+ *   The ABR uses 8-digit date strings like "20240605" (YYYYMMDD).
+ *   The sentinel value "19000101" means "not applicable" — the parseAbrDate
+ *   helper converts these to null instead of a meaningless 1900 date.
+ *
+ * The `createEmptyRawRecord()` factory resets the clipboard for each new
+ * <ABR> element the parser encounters.
+ */
 import type { IDataSourceAdapter } from '@domain/interfaces/IDataSourceAdapter';
 import type { Business } from '@domain/entities/Business';
 import type { BusinessName } from '@domain/entities/BusinessName';

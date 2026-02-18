@@ -1,3 +1,23 @@
+# =============================================================================
+# Docker Compose — Local Development Database
+# =============================================================================
+#
+# Spins up a single PostgreSQL 17 container for local development.
+# Run with:  docker compose up -d
+# Stop with: docker compose down          (keeps data)
+#            docker compose down -v        (deletes data volume too)
+#
+# The ${VAR:-default} syntax reads from your .env file at project root.
+# If the variable is missing, the value after :- is used as a fallback.
+#
+# The "healthcheck" block makes Docker repeatedly ask Postgres "are you
+# ready?" — other services (or scripts) that depend on this container
+# can wait until the health check passes before connecting.
+#
+# The named volume "pgdata" stores database files outside the container,
+# so your data survives container restarts and rebuilds.
+# =============================================================================
+
 services:
   db:
     image: postgres:17-alpine

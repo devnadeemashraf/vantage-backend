@@ -1,3 +1,33 @@
+/**
+ * PostgreSQL Business Repository — The Data Access Implementation
+ * Layer: Infrastructure
+ * Pattern: Repository Pattern (implements IBusinessRepository)
+ *
+ * This is the concrete implementation of the IBusinessRepository interface
+ * defined in the Domain layer. While the interface says "I need search",
+ * this class says "here's HOW we search using PostgreSQL".
+ *
+ * This repository combines two PostgreSQL search strategies:
+ *
+ *   ts_rank (Full-Text Search):
+ *     Uses the pre-computed search_vector column (tsvector) and the
+ *     @@ operator. Great for linguistic matching — "plumber" finds "plumbing"
+ *     because both share the stem "plumb". Weights (A/B/C/D) determine how
+ *     important each field is in the ranking.
+ *
+ *   similarity() (Trigram / Fuzzy Search):
+ *     Uses pg_trgm's similarity function. Great for typo tolerance —
+ *     "Smithh" still finds "Smith" because the trigram overlap is high.
+ *     SIMILARITY_THRESHOLD (0.3) is the minimum similarity score (0-1)
+ *     a row must have to be included in results.
+ *
+ * The final relevance score blends both: 60% text rank + 40% trigram
+ * similarity. This gives the best of both worlds — linguistic understanding
+ * AND typo tolerance.
+ *
+ * The @injectable() decorator lets tsyringe construct this class automatically,
+ * injecting the Knex instance and Logger via the DI container.
+ */
 import { inject, injectable } from 'tsyringe';
 import type { Knex } from 'knex';
 

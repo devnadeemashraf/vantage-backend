@@ -1,3 +1,27 @@
+/**
+ * Application Configuration — Single Source of Truth
+ * Layer: Core
+ *
+ * Every setting the app needs (port, DB credentials, batch sizes, etc.) flows
+ * through this one file. Think of it as the reception desk of a hotel:
+ * you check in here once, your details are validated, and then every floor
+ * (module) can look you up from the same registry.
+ *
+ * How it works:
+ *   1. `dotenv/config` loads the .env file into process.env.
+ *   2. A Zod schema acts as a gatekeeper — it validates every env var at
+ *      startup and coerces strings to the correct types (e.g. "5432" -> 5432).
+ *      If anything is missing or invalid, the app crashes immediately with a
+ *      clear error instead of failing mysteriously later at runtime.
+ *   3. The validated values are reshaped into a clean, nested `config` object
+ *      exported with `as const` so TypeScript treats every value as a literal
+ *      type — no accidental mutation and full autocompletion everywhere.
+ *
+ * Why Zod for env validation?
+ *   - Zod gives us runtime type-checking (TypeScript types disappear at runtime).
+ *   - `.default()` provides sensible fallbacks for local dev.
+ *   - `.coerce` converts strings (which process.env always provides) to numbers.
+ */
 import 'dotenv/config';
 import { z } from 'zod/v4';
 

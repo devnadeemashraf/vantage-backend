@@ -1,15 +1,35 @@
 /**
- * ETL Worker Thread
+ * ETL Worker Thread — The XML Ingestion Engine
+ * Layer: Workers (ETL)
  *
- * Runs in a separate V8 isolate via worker_threads.
- * Streams an ABR XML file through a SAX parser, normalizes each <ABR> record
- * via the XmlDataSourceAdapter, and bulk-inserts via the BatchProcessor.
+ * This file runs in a SEPARATE V8 isolate via Node.js worker_threads.
+ * It is NOT part of the HTTP server — it's spawned on-demand by the
+ * IngestionService or the seed CLI script.
+ *
+ * How it works (SAX Streaming):
+ *   Instead of loading the entire 580MB XML file into memory (which would
+ *   need ~2-3GB of RAM after parsing), we use a SAX (Simple API for XML)
+ *   parser that reads the file like a **conveyor belt** — one element at a
+ *   time, left to right. As each XML tag opens/closes, the parser fires
+ *   events (opentag, text, closetag) and we react to them.
+ *
+ *   Think of it as reading a book page by page and taking notes, vs.
+ *   photocopying the entire book into memory first. SAX uses constant
+ *   memory regardless of file size — perfect for large datasets.
+ *
+ * The `elementStack` acts as a **breadcrumb trail**: it tracks which XML
+ * elements we're currently nested inside. This is crucial because the
+ * same tag name (e.g., "NonIndividualNameText") appears under different
+ * parents (MainEntity vs OtherEntity), and we need the parent context
+ * to know where to store the value.
  *
  * Communication with the main thread:
- *   workerData -> { filePath, dbConfig, batchSize }
- *   postMessage <- { type: 'progress', processed }
- *   postMessage <- { type: 'done', result: IngestionResult }
- *   postMessage <- { type: 'error', message }
+ *   IN:  workerData = { filePath, dbConfig, batchSize }
+ *   OUT: postMessage({ type: 'progress', processed: N })      — every 10k records
+ *        postMessage({ type: 'done', result: IngestionResult }) — on completion
+ *        postMessage({ type: 'error', message: string })        — on failure
+ *
+ * The stream pipeline: FileReadStream → SAX Parser → Adapter → BatchProcessor → PostgreSQL
  */
 import { parentPort, workerData } from 'worker_threads';
 import { createReadStream } from 'fs';

@@ -1,15 +1,30 @@
+/**
+ * Search Strategy Factory
+ * Layer: Application
+ * Pattern: Factory Pattern
+ *
+ * The Factory Pattern is like a **vending machine**: you press a button
+ * (pass a `mode` string), and it dispenses the right product (strategy
+ * instance) without you needing to know how it was built.
+ *
+ * This factory is the single place that maps mode -> strategy:
+ *   'standard' -> StandardSearchStrategy (PostgreSQL full-text + fuzzy)
+ *   'ai'       -> AiSearchStrategy       (not yet implemented, throws 501)
+ *
+ * Open/Closed Principle:
+ *   To add a new search mode, you add a new `case` here and a new strategy
+ *   class — you never modify the existing StandardSearchStrategy or the
+ *   SearchService. The existing code is "closed" to modification but "open"
+ *   to extension.
+ *
+ * The factory receives the repository via DI (@inject) and passes it to
+ * whichever strategy it constructs, keeping strategies stateless and testable.
+ */
 import { inject, injectable } from 'tsyringe';
 import { TOKENS } from '@core/types';
 import type { ISearchStrategy } from '@domain/interfaces/ISearchStrategy';
 import { StandardSearchStrategy } from '@application/strategies/StandardSearchStrategy';
 import { AppError } from '@shared/errors/AppError';
-
-/**
- * Factory that returns the correct ISearchStrategy based on mode.
- * Currently only 'standard' is available. When an AI engine is wired
- * in (Commit 10), the factory will resolve AiSearchStrategy from the
- * DI container for mode='ai'.
- */
 @injectable()
 export class SearchStrategyFactory {
   constructor(

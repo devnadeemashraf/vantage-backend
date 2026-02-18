@@ -1,3 +1,30 @@
+/**
+ * Express Application Factory
+ * Layer: Interfaces (HTTP)
+ * Pattern: Factory Function
+ *
+ * This function assembles the Express application by wiring together
+ * middleware and routes. It's a factory (returns a new app instance)
+ * rather than a singleton, which is important for two reasons:
+ *
+ *   1. Clustering: Each cluster worker process calls createApp() to get
+ *      its own independent Express instance.
+ *   2. Testing: Integration tests can call createApp() to get a fresh app
+ *      for each test without shared state leaking between tests.
+ *
+ * Middleware ordering matters — it's an assembly line:
+ *   1. helmet()      — Sets security headers (CSP, X-Frame-Options, etc.)
+ *   2. cors()        — Allows cross-origin requests from frontend apps.
+ *   3. compression() — Gzips response bodies to reduce transfer size.
+ *   4. express.json()— Parses JSON request bodies into req.body.
+ *   5. requestLogger — Logs every request/response with timing.
+ *   6. Routes        — The actual API endpoints.
+ *   7. errorHandler  — MUST be last; catches errors from all routes above.
+ *
+ * The `import '@core/container'` side-effect import ensures the DI
+ * container is bootstrapped before any route handler tries to resolve
+ * dependencies from it.
+ */
 import express from 'express';
 import helmet from 'helmet';
 import cors from 'cors';

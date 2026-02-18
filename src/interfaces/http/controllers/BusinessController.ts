@@ -1,3 +1,25 @@
+/**
+ * Business Controller — HTTP Request Handler for Search & Lookup
+ * Layer: Interfaces (HTTP)
+ *
+ * Controllers are the **thin boundary** between HTTP and the application.
+ * Their only job is to:
+ *   1. Extract data from the HTTP request (query params, path params, body).
+ *   2. Call the appropriate service method.
+ *   3. Format and send the HTTP response.
+ *
+ * They should contain NO business logic — no database queries, no search
+ * algorithms, no data transformation. If you find yourself writing an `if`
+ * that involves business rules in a controller, it belongs in a service.
+ *
+ * The controller resolves SearchService from the DI container at construction
+ * time, so it's fully decoupled from the service's dependencies (repository,
+ * strategies, etc.).
+ *
+ * Arrow-function methods (search = async ...) are used instead of regular
+ * methods so that `this` is lexically bound — Express can call them as
+ * standalone callbacks without losing the class context.
+ */
 import type { Request, Response } from 'express';
 import { container } from '@core/container';
 import { TOKENS } from '@core/types';
