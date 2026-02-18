@@ -1,0 +1,54 @@
+{
+  "name": "vantage-backend",
+  "version": "0.1.0",
+  "description": "Vantage - High-performance B2B Company Search Directory backed by the Australian Business Register",
+  "main": "dist/server.js",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc && tsc-alias",
+    "start": "node dist/server.js",
+    "migrate": "knex migrate:latest --knexfile knexfile.ts",
+    "migrate:rollback": "knex migrate:rollback --knexfile knexfile.ts",
+    "lint": "eslint src/",
+    "format": "prettier --write \"src/**/*.ts\""
+  },
+  "keywords": [
+    "abn",
+    "search",
+    "directory",
+    "b2b"
+  ],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "compression": "^1.8.1",
+    "cors": "^2.8.6",
+    "dotenv": "^17.3.1",
+    "express": "^5.2.1",
+    "helmet": "^8.1.0",
+    "knex": "^3.1.0",
+    "pg": "^8.18.0",
+    "pino": "^10.3.1",
+    "pino-http": "^11.0.0",
+    "reflect-metadata": "^0.2.2",
+    "sax": "^1.4.4",
+    "tsyringe": "^4.10.0",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@types/compression": "^1.8.1",
+    "@types/cors": "^2.8.19",
+    "@types/node": "^25.2.3",
+    "@types/pg": "^8.16.0",
+    "@types/sax": "^1.2.7",
+    "eslint": "^10.0.0",
+    "eslint-config-prettier": "^10.1.8",
+    "pino-pretty": "^13.1.3",
+    "prettier": "^3.8.1",
+    "tsc-alias": "^1.8.16",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.56.0"
+  }
+}
