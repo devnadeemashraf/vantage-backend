@@ -17,6 +17,7 @@
     "test": "jest",
     "test:unit": "jest --testPathPatterns=unit",
     "test:integration": "jest --testPathPatterns=integration",
+    "test:coverage": "jest --coverage",
     "prepare": "husky"
   },
   "lint-staged": {
