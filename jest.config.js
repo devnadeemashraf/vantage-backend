@@ -23,6 +23,7 @@ module.exports = {
   rootDir: '.',
   roots: ['<rootDir>/src'],
   testMatch: ['**/__tests__/**/*.test.ts'],
+  setupFiles: ['<rootDir>/src/__tests__/jest.setup.ts'],
 
   moduleNameMapper: {
     '^@core/(.*)$': '<rootDir>/src/core/$1',
@@ -38,12 +39,7 @@ module.exports = {
    * Collect coverage from source files only (excludes tests, scripts, and
    * the worker entry point which is hard to unit-test in-process).
    */
-  collectCoverageFrom: [
-    'src/**/*.ts',
-    '!src/__tests__/**',
-    '!src/scripts/**',
-    '!src/server.ts',
-  ],
+  collectCoverageFrom: ['src/**/*.ts', '!src/__tests__/**', '!src/scripts/**', '!src/server.ts'],
 
   /**
    * Force Jest to exit after all tests complete — prevents hanging on
