@@ -31,7 +31,7 @@ import { inject, injectable } from 'tsyringe';
 export class SearchService {
   constructor(
     @inject(TOKENS.BusinessRepository) private repo: IBusinessRepository,
-    private strategyFactory: SearchStrategyFactory,
+    @inject(SearchStrategyFactory) private strategyFactory: SearchStrategyFactory,
   ) {}
 
   async search(query: SearchQuery): Promise<PaginatedResult<Business>> {
