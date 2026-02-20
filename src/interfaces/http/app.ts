@@ -31,7 +31,12 @@ export function createApp(): express.Express {
 
   // Security & compression
   app.use(helmet());
-  app.use(cors());
+  app.use(
+    cors({
+      origin: ['http://localhost:5173', 'https://vantage-frontend-vp5f.onrender.com'],
+      credentials: true,
+    }),
+  );
   app.use(compression());
 
   // Body parsing
