@@ -34,9 +34,7 @@ import fs from 'fs';
 import path from 'path';
 import { Worker } from 'worker_threads';
 
-// ---------------------------------------------------------------------------
 // CLI argument parsing
-// ---------------------------------------------------------------------------
 
 const args = process.argv.slice(2);
 
@@ -51,9 +49,7 @@ const defaultFile = path.resolve(config.etl.dataDir, '20260211_Public20_Sample.x
 const filePath = path.resolve(getArg('--file', defaultFile));
 const runMigrations = hasFlag('--migrate');
 
-// ---------------------------------------------------------------------------
 // Helpers
-// ---------------------------------------------------------------------------
 
 function formatDuration(ms: number): string {
   if (ms < 1000) return `${ms}ms`;
@@ -68,9 +64,7 @@ function formatNumber(n: number): string {
   return n.toLocaleString();
 }
 
-// ---------------------------------------------------------------------------
 // Main
-// ---------------------------------------------------------------------------
 
 async function main(): Promise<void> {
   // eslint-disable-next-line no-console

@@ -59,12 +59,33 @@ export class BusinessController {
       mode: mode as 'standard' | 'ai',
     });
 
-    res.status(200).json({ status: 'success', ...result });
+    const totalTimeMs =
+      req.requestStartTime != null ? Math.round(Date.now() - req.requestStartTime) : undefined;
+    const meta = {
+      ...result.meta,
+      ...(totalTimeMs != null && { totalTimeMs }),
+    };
+
+    res.status(200).json({
+      status: 'success',
+      ...result,
+      ...(Object.keys(meta).length > 0 && { meta }),
+    });
   };
 
   findByAbn = async (req: Request, res: Response): Promise<void> => {
     const { abn } = req.params;
-    const result = await this.service.findByAbn(abn as string);
-    res.status(200).json({ status: 'success', data: result });
+    const { business, queryTimeMs } = await this.service.findByAbn(abn as string);
+
+    const totalTimeMs =
+      req.requestStartTime != null ? Math.round(Date.now() - req.requestStartTime) : undefined;
+    const meta =
+      totalTimeMs != null || queryTimeMs != null ? { totalTimeMs, queryTimeMs } : undefined;
+
+    res.status(200).json({
+      status: 'success',
+      data: business,
+      ...(meta != null && { meta }),
+    });
   };
 }

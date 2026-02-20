@@ -35,6 +35,7 @@ export const TOKENS = {
   // Strategies — swappable algorithm implementations
   SearchStrategy: Symbol.for('SearchStrategy'),
   TextToSqlEngine: Symbol.for('TextToSqlEngine'),
+  SearchStrategyFactory: Symbol.for('SearchStrategyFactory'),
 
   // Adapters — data transformation bridges
   DataSourceAdapter: Symbol.for('DataSourceAdapter'),

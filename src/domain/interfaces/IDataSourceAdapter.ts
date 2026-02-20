@@ -1,5 +1,3 @@
-import type { Business } from '@domain/entities/Business';
-
 /**
  * Data Source Adapter Interface
  * Layer: Domain
@@ -19,6 +17,8 @@ import type { Business } from '@domain/entities/Business';
  * This keeps the ingestion pipeline (batchProcessor, etlWorker) completely
  * decoupled from the data format — swap the adapter, swap the source.
  */
+import type { Business } from '@domain/entities/Business';
+
 export interface IDataSourceAdapter<TRaw = unknown> {
   normalize(raw: TRaw): Business;
 }

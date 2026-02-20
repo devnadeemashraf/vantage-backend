@@ -35,6 +35,17 @@ export interface SearchQuery {
   mode?: 'standard' | 'ai';
 }
 
+/**
+ * Timing metadata returned with search and lookup responses.
+ * Enables the client to display total request time vs database query time.
+ */
+export interface SearchResultMeta {
+  /** Wall-clock time from request arrival to response sent (ms). */
+  totalTimeMs?: number;
+  /** Time spent executing database queries (ms). */
+  queryTimeMs?: number;
+}
+
 export interface PaginatedResult<T> {
   data: T[];
   pagination: {
@@ -43,6 +54,14 @@ export interface PaginatedResult<T> {
     total: number;
     totalPages: number;
   };
+  /** Optional timing metadata (added by repository and controller). */
+  meta?: SearchResultMeta;
+}
+
+/** Result shape for single-business lookup with DB timing. */
+export interface BusinessLookupResult<T = unknown> {
+  business: T | null;
+  queryTimeMs: number;
 }
 
 export interface IngestionResult {

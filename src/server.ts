@@ -41,7 +41,7 @@ const numWorkers = config.cluster.workers || os.cpus().length;
 if (cluster.isPrimary) {
   logger.info(
     { pid: process.pid, workers: numWorkers },
-    `Primary process starting — forking ${numWorkers} workers`,
+    `Primary process starting >> forking ${numWorkers} workers`,
   );
 
   for (let i = 0; i < numWorkers; i++) {

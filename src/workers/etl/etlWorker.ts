@@ -189,9 +189,7 @@ parser.on('end', async () => {
 const fileStream = createReadStream(filePath, { encoding: 'utf-8', highWaterMark: 64 * 1024 });
 fileStream.pipe(parser);
 
-// ---------------------------------------------------------------------------
 // Helpers
-// ---------------------------------------------------------------------------
 
 function parentElement(): string {
   return elementStack.length >= 2 ? elementStack[elementStack.length - 2] : '';

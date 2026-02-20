@@ -25,6 +25,7 @@ import { TOKENS } from '@core/types';
 import type { ISearchStrategy } from '@domain/interfaces/ISearchStrategy';
 import { AppError } from '@shared/errors/AppError';
 import { inject, injectable } from 'tsyringe';
+
 @injectable()
 export class SearchStrategyFactory {
   constructor(@inject(TOKENS.BusinessRepository) private _repo: unknown) {}

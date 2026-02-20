@@ -33,6 +33,7 @@ import type { IngestionResult } from '@shared/types';
 import path from 'path';
 import { inject, injectable } from 'tsyringe';
 import { Worker } from 'worker_threads';
+
 @injectable()
 export class IngestionService {
   constructor(@inject(TOKENS.Logger) private log: Logger) {}

@@ -27,3 +27,6 @@ temp/
 
 # Coverage
 coverage/
+
+# Misc
+PITCH.md

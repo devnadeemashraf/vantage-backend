@@ -86,17 +86,18 @@ describe('SearchService', () => {
   });
 
   describe('findByAbn()', () => {
-    it('should return the business when found', async () => {
-      mockRepo.findByAbn.mockResolvedValue(sampleBusiness);
+    it('should return the business and queryTimeMs when found', async () => {
+      mockRepo.findByAbn.mockResolvedValue({ business: sampleBusiness, queryTimeMs: 3 });
 
       const result = await service.findByAbn('53004085616');
 
       expect(mockRepo.findByAbn).toHaveBeenCalledWith('53004085616');
-      expect(result).toEqual(sampleBusiness);
+      expect(result.business).toEqual(sampleBusiness);
+      expect(result.queryTimeMs).toBe(3);
     });
 
     it('should throw NotFoundError when ABN does not exist', async () => {
-      mockRepo.findByAbn.mockResolvedValue(null);
+      mockRepo.findByAbn.mockResolvedValue({ business: null, queryTimeMs: 1 });
 
       await expect(service.findByAbn('00000000000')).rejects.toThrow(NotFoundError);
       await expect(service.findByAbn('00000000000')).rejects.toThrow(

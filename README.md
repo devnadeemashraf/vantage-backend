@@ -221,6 +221,21 @@ npm run dev
 GET /api/v1/businesses/search?q=plumbing&state=NSW&page=1&limit=20
 ```
 
+**Response** includes `meta` with timing for UI display:
+```json
+{
+  "status": "success",
+  "data": [...],
+  "pagination": { "page": 1, "limit": 20, "total": 123, "totalPages": 7 },
+  "meta": {
+    "totalTimeMs": 42,
+    "queryTimeMs": 28
+  }
+}
+```
+- `totalTimeMs` — wall-clock time from request arrival to response sent (ms)
+- `queryTimeMs` — time spent executing database queries (ms)
+
 Query Parameters:
 | Param | Type | Description |
 |---|---|---|
@@ -237,6 +252,15 @@ Query Parameters:
 
 ```
 GET /api/v1/businesses/12345678901
+```
+
+**Response** includes `meta` with timing:
+```json
+{
+  "status": "success",
+  "data": { "abn": "12345678901", "entityName": "...", ... },
+  "meta": { "totalTimeMs": 15, "queryTimeMs": 8 }
+}
 ```
 
 ### Trigger Ingestion

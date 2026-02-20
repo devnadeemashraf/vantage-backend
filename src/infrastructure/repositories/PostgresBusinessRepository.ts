@@ -33,7 +33,7 @@ import { TOKENS } from '@core/types';
 import type { Business, BusinessRow } from '@domain/entities/Business';
 import type { BusinessName, BusinessNameRow } from '@domain/entities/BusinessName';
 import type { IBusinessRepository } from '@domain/interfaces/IBusinessRepository';
-import type { PaginatedResult, SearchQuery } from '@shared/types';
+import type { BusinessLookupResult, PaginatedResult, SearchQuery } from '@shared/types';
 import type { Knex } from 'knex';
 import { inject, injectable } from 'tsyringe';
 
@@ -71,24 +71,25 @@ export class PostgresBusinessRepository implements IBusinessRepository {
     return new Map(rows.map((r) => [r.abn, r.id]));
   }
 
-  // ---------------------------------------------------------------------------
   // Single-record lookup
-  // ---------------------------------------------------------------------------
 
-  async findByAbn(abn: string): Promise<Business | null> {
+  async findByAbn(abn: string): Promise<BusinessLookupResult<Business>> {
+    const startMs = Date.now();
+
     const row = await this.db('businesses').where('abn', abn).first();
-    if (!row) return null;
+    if (!row) {
+      return { business: null, queryTimeMs: Math.round(Date.now() - startMs) };
+    }
 
     const nameRows: BusinessName[] = await this.db('business_names')
       .where('business_id', row.id)
       .select('id', 'business_id as businessId', 'name_type as nameType', 'name_text as nameText');
 
-    return this.toDomain(row, nameRows);
+    const queryTimeMs = Math.round(Date.now() - startMs);
+    return { business: this.toDomain(row, nameRows), queryTimeMs };
   }
 
-  // ---------------------------------------------------------------------------
   // Full-text + fuzzy search (tsvector + pg_trgm)
-  // ---------------------------------------------------------------------------
 
   async search(query: SearchQuery): Promise<PaginatedResult<Business>> {
     const { term, page, limit } = query;
@@ -124,7 +125,9 @@ export class PostgresBusinessRepository implements IBusinessRepository {
     const countQuery = baseQuery.clone().clearSelect().clearOrder().count('* as total').first();
     const dataQuery = baseQuery.orderBy('relevance', 'desc').limit(limit).offset(offset);
 
+    const startMs = Date.now();
     const [countResult, rows] = await Promise.all([countQuery, dataQuery]);
+    const queryTimeMs = Math.round(Date.now() - startMs);
     const total = parseInt(String((countResult as { total: string })?.total ?? '0'), 10);
 
     return {
@@ -135,12 +138,11 @@ export class PostgresBusinessRepository implements IBusinessRepository {
         total,
         totalPages: Math.ceil(total / limit),
       },
+      meta: { queryTimeMs },
     };
   }
 
-  // ---------------------------------------------------------------------------
   // Filter-only listing (no text search)
-  // ---------------------------------------------------------------------------
 
   async findWithFilters(query: SearchQuery): Promise<PaginatedResult<Business>> {
     const { page, limit } = query;
@@ -152,7 +154,9 @@ export class PostgresBusinessRepository implements IBusinessRepository {
     const countQuery = baseQuery.clone().clearSelect().clearOrder().count('* as total').first();
     const dataQuery = baseQuery.orderBy('entity_name', 'asc').limit(limit).offset(offset);
 
+    const startMs = Date.now();
     const [countResult, rows] = await Promise.all([countQuery, dataQuery]);
+    const queryTimeMs = Math.round(Date.now() - startMs);
     const total = parseInt(String((countResult as { total: string })?.total ?? '0'), 10);
 
     return {
@@ -163,12 +167,11 @@ export class PostgresBusinessRepository implements IBusinessRepository {
         total,
         totalPages: Math.ceil(total / limit),
       },
+      meta: { queryTimeMs },
     };
   }
 
-  // ---------------------------------------------------------------------------
   // Private helpers
-  // ---------------------------------------------------------------------------
 
   /**
    * Converts a raw search term into a tsquery string.
@@ -210,10 +213,7 @@ export class PostgresBusinessRepository implements IBusinessRepository {
     };
   }
 }
-
-// ---------------------------------------------------------------------------
-// Shared filter application (used by both search and findWithFilters)
-// ---------------------------------------------------------------------------
+// Shared filter application (used by both search and findWithFilters
 
 function applyFilters(qb: Knex.QueryBuilder, query: SearchQuery): void {
   if (query.state) qb.where('state', query.state);

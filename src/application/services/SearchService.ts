@@ -19,7 +19,7 @@
  * The service is @injectable so the DI container wires it up automatically;
  * controllers resolve it via TOKENS.SearchService.
  */
-import { SearchStrategyFactory } from '@application/factories/SearchStrategyFactory';
+import type { SearchStrategyFactory } from '@application/factories/SearchStrategyFactory';
 import { TOKENS } from '@core/types';
 import type { Business } from '@domain/entities/Business';
 import type { IBusinessRepository } from '@domain/interfaces/IBusinessRepository';
@@ -31,7 +31,7 @@ import { inject, injectable } from 'tsyringe';
 export class SearchService {
   constructor(
     @inject(TOKENS.BusinessRepository) private repo: IBusinessRepository,
-    @inject(SearchStrategyFactory) private strategyFactory: SearchStrategyFactory,
+    @inject(TOKENS.SearchStrategyFactory) private strategyFactory: SearchStrategyFactory,
   ) {}
 
   async search(query: SearchQuery): Promise<PaginatedResult<Business>> {
@@ -39,9 +39,9 @@ export class SearchService {
     return strategy.execute(query);
   }
 
-  async findByAbn(abn: string): Promise<Business> {
-    const result = await this.repo.findByAbn(abn);
-    if (!result) throw new NotFoundError('Business', abn);
-    return result;
+  async findByAbn(abn: string): Promise<{ business: Business; queryTimeMs: number }> {
+    const { business, queryTimeMs } = await this.repo.findByAbn(abn);
+    if (!business) throw new NotFoundError('Business', abn);
+    return { business, queryTimeMs };
   }
 }

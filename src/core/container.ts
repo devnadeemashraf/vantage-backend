@@ -23,6 +23,7 @@
  */
 import 'reflect-metadata';
 
+import { SearchStrategyFactory } from '@application/factories/SearchStrategyFactory';
 import { IngestionService } from '@application/services/IngestionService';
 import { SearchService } from '@application/services/SearchService';
 import { getDbConnection } from '@infrastructure/database/connection';
@@ -37,5 +38,6 @@ container.register(TOKENS.Knex, { useValue: getDbConnection() });
 container.register(TOKENS.BusinessRepository, { useClass: PostgresBusinessRepository });
 container.register(TOKENS.SearchService, { useClass: SearchService });
 container.register(TOKENS.IngestionService, { useClass: IngestionService });
+container.register(TOKENS.SearchStrategyFactory, { useClass: SearchStrategyFactory });
 
 export { container };

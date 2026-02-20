@@ -13,13 +13,14 @@
  *      for each test without shared state leaking between tests.
  *
  * Middleware ordering matters — it's an assembly line:
- *   1. helmet()      — Sets security headers (CSP, X-Frame-Options, etc.)
- *   2. cors()        — Allows cross-origin requests from frontend apps.
- *   3. compression() — Gzips response bodies to reduce transfer size.
- *   4. express.json()— Parses JSON request bodies into req.body.
- *   5. requestLogger — Logs every request/response with timing.
- *   6. Routes        — The actual API endpoints.
- *   7. errorHandler  — MUST be last; catches errors from all routes above.
+ *   1. requestTimer  — Records req.requestStartTime for totalTimeMs in responses.
+ *   2. helmet()      — Sets security headers (CSP, X-Frame-Options, etc.)
+ *   3. cors()        — Allows cross-origin requests from frontend apps.
+ *   4. compression() — Gzips response bodies to reduce transfer size.
+ *   5. express.json()— Parses JSON request bodies into req.body.
+ *   6. requestLogger — Logs every request/response with timing.
+ *   7. Routes        — The actual API endpoints.
+ *   8. errorHandler  — MUST be last; catches errors from all routes above.
  *
  * The `import '@core/container'` side-effect import ensures the DI
  * container is bootstrapped before any route handler tries to resolve
@@ -29,6 +30,7 @@ import '@core/container';
 
 import { errorHandler } from '@interfaces/http/middleware/errorHandler';
 import { requestLogger } from '@interfaces/http/middleware/requestLogger';
+import { requestTimer } from '@interfaces/http/middleware/requestTimer';
 import { businessRoutes } from '@interfaces/http/routes/businessRoutes';
 import { healthRoutes } from '@interfaces/http/routes/healthRoutes';
 import { ingestionRoutes } from '@interfaces/http/routes/ingestionRoutes';
@@ -39,6 +41,9 @@ import helmet from 'helmet';
 
 export function createApp(): express.Express {
   const app = express();
+
+  // Request timing (must be first)
+  app.use(requestTimer);
 
   // Security & compression
   app.use(helmet());

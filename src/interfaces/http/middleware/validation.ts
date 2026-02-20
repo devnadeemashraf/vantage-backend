@@ -24,6 +24,7 @@
 import { ValidationError } from '@shared/errors/AppError';
 import type { NextFunction, Request, Response } from 'express';
 import type { z } from 'zod/v4';
+
 export function validate<T extends z.ZodType>(schema: T, source: 'query' | 'body' | 'params') {
   return (req: Request, _res: Response, next: NextFunction): void => {
     const result = schema.safeParse(req[source]);

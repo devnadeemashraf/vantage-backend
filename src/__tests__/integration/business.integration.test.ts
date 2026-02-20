@@ -71,10 +71,11 @@ afterEach(() => {
 });
 
 describe('GET /api/v1/businesses/search', () => {
-  it('should return 200 with paginated results', async () => {
+  it('should return 200 with paginated results and timing meta', async () => {
     mockRepo.search.mockResolvedValue({
       data: [sampleBusiness],
       pagination: { page: 1, limit: 20, total: 1, totalPages: 1 },
+      meta: { queryTimeMs: 5 },
     });
 
     const res = await request(app).get('/api/v1/businesses/search?q=vantage');
@@ -89,12 +90,16 @@ describe('GET /api/v1/businesses/search', () => {
       total: 1,
       totalPages: 1,
     });
+    expect(res.body.meta).toBeDefined();
+    expect(typeof res.body.meta.totalTimeMs).toBe('number');
+    expect(typeof res.body.meta.queryTimeMs).toBe('number');
   });
 
   it('should return an empty paginated array when no results match', async () => {
     mockRepo.search.mockResolvedValue({
       data: [],
       pagination: { page: 1, limit: 20, total: 0, totalPages: 0 },
+      meta: { queryTimeMs: 2 },
     });
 
     const res = await request(app).get('/api/v1/businesses/search?q=xyznonexistent');
@@ -108,6 +113,7 @@ describe('GET /api/v1/businesses/search', () => {
     mockRepo.findWithFilters.mockResolvedValue({
       data: [sampleBusiness],
       pagination: { page: 1, limit: 20, total: 1, totalPages: 1 },
+      meta: { queryTimeMs: 4 },
     });
 
     const res = await request(app).get('/api/v1/businesses/search?state=NSW');
@@ -120,6 +126,7 @@ describe('GET /api/v1/businesses/search', () => {
     mockRepo.search.mockResolvedValue({
       data: [],
       pagination: { page: 2, limit: 5, total: 50, totalPages: 10 },
+      meta: { queryTimeMs: 1 },
     });
 
     const res = await request(app).get('/api/v1/businesses/search?q=test&page=2&limit=5');
@@ -133,6 +140,7 @@ describe('GET /api/v1/businesses/search', () => {
     mockRepo.search.mockResolvedValue({
       data: [],
       pagination: { page: 1, limit: 20, total: 0, totalPages: 0 },
+      meta: { queryTimeMs: 0 },
     });
 
     const res = await request(app).get('/api/v1/businesses/search?q=test');
@@ -142,8 +150,8 @@ describe('GET /api/v1/businesses/search', () => {
 });
 
 describe('GET /api/v1/businesses/:abn', () => {
-  it('should return 200 with the business when ABN exists', async () => {
-    mockRepo.findByAbn.mockResolvedValue(sampleBusiness);
+  it('should return 200 with the business and timing meta when ABN exists', async () => {
+    mockRepo.findByAbn.mockResolvedValue({ business: sampleBusiness, queryTimeMs: 3 });
 
     const res = await request(app).get('/api/v1/businesses/53004085616');
 
@@ -151,10 +159,13 @@ describe('GET /api/v1/businesses/:abn', () => {
     expect(res.body.status).toBe('success');
     expect(res.body.data.abn).toBe('53004085616');
     expect(res.body.data.entityName).toBe('VANTAGE SEARCH PTY LTD');
+    expect(res.body.meta).toBeDefined();
+    expect(typeof res.body.meta.totalTimeMs).toBe('number');
+    expect(typeof res.body.meta.queryTimeMs).toBe('number');
   });
 
   it('should return 404 when ABN does not exist', async () => {
-    mockRepo.findByAbn.mockResolvedValue(null);
+    mockRepo.findByAbn.mockResolvedValue({ business: null, queryTimeMs: 1 });
 
     const res = await request(app).get('/api/v1/businesses/00000000000');
 
