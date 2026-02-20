@@ -1,23 +1,15 @@
 /**
- * Business Repository Interface — The Data Access Contract
+ * Business Repository Interface — Data Access Contract
  * Layer: Domain
  * Pattern: Repository Pattern
  *
- * This interface defines WHAT data operations the app needs, without saying
- * HOW they are performed. Think of it as a **menu at a restaurant**: it lists
- * every dish (operation) you can order, but says nothing about the kitchen
- * (database engine) that prepares them.
+ * I define what data operations the app needs (search, findByAbn, bulkUpsert,
+ * etc.) without tying the app to a specific database. The domain owns this
+ * contract; Infrastructure implements it (e.g. PostgresBusinessRepository).
+ * If we ever switched to Elasticsearch, we’d only swap the implementation —
+ * callers stay unchanged.
  *
- * Why does the Domain layer own this interface?
- *   This is the core principle of Clean Architecture's Dependency Rule:
- *   inner layers define contracts, outer layers implement them.
- *   The domain says "I need a way to search businesses" — the infrastructure
- *   layer (PostgresBusinessRepository) decides to use PostgreSQL with GIN
- *   indexes to fulfil that contract. If we migrated to Elasticsearch tomorrow,
- *   only the implementation changes; every consumer of this interface stays
- *   untouched.
- *
- * Each method is documented inline below with its purpose.
+ * Methods are documented inline below.
  */
 import type { Business, BusinessRow } from '@domain/entities/Business';
 import type { BusinessNameRow } from '@domain/entities/BusinessName';
@@ -33,8 +25,18 @@ export interface IBusinessRepository {
   /** Look up a single business by its 11-digit ABN. Includes queryTimeMs for API timing. */
   findByAbn(abn: string): Promise<BusinessLookupResult<Business>>;
 
-  /** Full-text + fuzzy search combining tsvector and pg_trgm. Includes meta.queryTimeMs. */
-  search(query: SearchQuery): Promise<PaginatedResult<Business>>;
+  /**
+   * Search using native SQL only (e.g. ILIKE, no extensions). Used when
+   * technique is 'native' to compare baseline query performance.
+   */
+  searchNative(query: SearchQuery): Promise<PaginatedResult<Business>>;
+
+  /**
+   * Search using optimized path (indexes, tsvector). Used when
+   * technique is 'optimized'. Same contract as searchNative; implementation
+   * can differ for performance comparison.
+   */
+  searchOptimized(query: SearchQuery): Promise<PaginatedResult<Business>>;
 
   /** Filtered listing (state, postcode, entity type, status) with pagination. Includes meta.queryTimeMs. */
   findWithFilters(query: SearchQuery): Promise<PaginatedResult<Business>>;

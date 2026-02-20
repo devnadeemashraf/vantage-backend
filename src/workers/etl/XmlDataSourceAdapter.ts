@@ -1,38 +1,20 @@
 /**
- * XML Data Source Adapter — ABR XML → Business Entity Transformer
+ * XML Data Source Adapter — ABR XML → Business Entity
  * Layer: Workers (ETL)
  * Pattern: Adapter Pattern (implements IDataSourceAdapter<RawAbrRecord>)
  *
- * This file contains two things:
- *
- *   1. RawAbrRecord: An intermediate "bucket" that the SAX parser fills
- *      event-by-event as it reads through the XML. Think of it as a
- *      **clipboard** — the parser jots down each field as it encounters
- *      it, and once the full <ABR> block is closed, the record is complete.
- *
- *   2. XmlDataSourceAdapter: Transforms that raw bucket into a clean
- *      Business domain entity. The key logic is handling the ABR's two
- *      entity types:
- *        - IND (Individual/Sole Trader): name = "GivenName FamilyName"
- *        - Non-IND (Company, Trust, etc.): name = the NonIndividualNameText
- *
- * ABR Date Format:
- *   The ABR uses 8-digit date strings like "20240605" (YYYYMMDD).
- *   The sentinel value "19000101" means "not applicable" — the parseAbrDate
- *   helper converts these to null instead of a meaningless 1900 date.
- *
- * The `createEmptyRawRecord()` factory resets the clipboard for each new
- * <ABR> element the parser encounters.
+ * RawAbrRecord is the bucket the SAX parser fills per <ABR> block; when the
+ * block closes we pass it to normalize() and get a Business. I handle two
+ * ABR entity types: IND (individual) → entityName = "GivenName FamilyName";
+ * non-IND → entityName = mainEntityName. ABR dates are YYYYMMDD; "19000101"
+ * means not applicable so I map it to null. createEmptyRawRecord() resets
+ * the bucket for each new record.
  */
 import type { Business } from '@domain/entities/Business';
 import type { BusinessName } from '@domain/entities/BusinessName';
 import type { IDataSourceAdapter } from '@domain/interfaces/IDataSourceAdapter';
 
-/**
- * Raw intermediate representation of an ABR XML record.
- * Populated by the SAX parser event-by-event, then normalized
- * into a Business domain entity by the adapter.
- */
+/** Raw ABR record as filled by the SAX parser; adapter normalizes it to Business. */
 export interface RawAbrRecord {
   recordLastUpdatedDate: string;
   abn: string;
@@ -77,12 +59,7 @@ export function createEmptyRawRecord(): RawAbrRecord {
   };
 }
 
-/**
- * Normalizes a raw SAX-parsed ABR record into our Business domain entity.
- * Handles the IND (individual) vs non-individual branching:
- * - Individuals get entity_name = "GIVEN1 GIVEN2 FAMILYNAME"
- * - Non-individuals get entity_name = NonIndividualNameText
- */
+/** IND → entityName = given + family; non-IND → entityName = mainEntityName. */
 export class XmlDataSourceAdapter implements IDataSourceAdapter<RawAbrRecord> {
   normalize(raw: RawAbrRecord): Business {
     const isIndividual = raw.entityTypeInd === 'IND';
@@ -124,10 +101,7 @@ export class XmlDataSourceAdapter implements IDataSourceAdapter<RawAbrRecord> {
   }
 }
 
-/**
- * ABR dates are yyyymmdd integers (e.g. "20240605").
- * The sentinel value "19000101" means "not applicable".
- */
+/** ABR uses YYYYMMDD; "19000101" means not applicable → null. */
 function parseAbrDate(value: string | null | undefined): Date | null {
   if (!value || value.length !== 8 || value === '19000101') return null;
   const year = value.slice(0, 4);

@@ -1,21 +1,9 @@
 /**
  * Unit Tests — AppError Hierarchy
  *
- * Tests the custom error classes that form the backbone of Vantage's error
- * handling strategy. The hierarchy is:
- *
- *   Error (native)
- *     └── AppError (base, defaults to 500)
- *           ├── NotFoundError   (404)
- *           ├── ValidationError (400)
- *           └── ConflictError   (409)
- *
- * Why these tests matter:
- *   The global error handler (errorHandler middleware) relies on `instanceof`
- *   checks and the `isOperational` flag to decide what to send back to the
- *   client. If the prototype chain broke (a known TypeScript/ES2015 gotcha),
- *   every operational error would be treated as an unknown 500 — bad UX and
- *   a debugging nightmare. These tests lock down the contract.
+ * I lock down status codes, isOperational, and instanceof so the error
+ * handler can reliably tell operational errors from programmer errors.
+ * Without these, a broken prototype chain could turn 404s into 500s.
  */
 import { AppError, ConflictError, NotFoundError, ValidationError } from '@shared/errors/AppError';
 

@@ -2,24 +2,11 @@
  * Request Validation Middleware Factory
  * Layer: Interfaces (HTTP)
  *
- * This middleware acts as a **bouncer at a club**: before a request reaches
- * the controller, the bouncer checks its ID (data) against the guest list
- * (Zod schema). If the data is valid, the request proceeds; if not, it gets
- * turned away with a clear explanation of what was wrong.
- *
- * It's a "factory" because `validate(schema, source)` returns a NEW middleware
- * function — one tailored to a specific schema and request part. This lets
- * you reuse the same pattern across many routes:
- *
- *   router.get('/search', validate(searchQuerySchema, 'query'), controller.search);
- *   router.post('/ingest', validate(ingestBodySchema, 'body'), controller.ingest);
- *
- * On success: replaces `req[source]` with the Zod-parsed data, which means
- * type coercions (string "5" → number 5) are applied and the controller
- * receives clean, typed data.
- *
- * On failure: throws a ValidationError (400) which the global error handler
- * catches and returns to the client. The controller is never reached.
+ * I use validate(schema, source) to get a middleware that checks req.query,
+ * req.body, or req.params against a Zod schema. Valid data replaces req[source]
+ * with parsed/coerced values so the controller gets typed input; invalid →
+ * ValidationError (400) and the error handler responds. One pattern for all
+ * routes that need validation.
  */
 import { ValidationError } from '@shared/errors/AppError';
 import type { NextFunction, Request, Response } from 'express';

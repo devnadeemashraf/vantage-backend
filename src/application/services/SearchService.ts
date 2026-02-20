@@ -1,23 +1,15 @@
 /**
- * Search Service — The Orchestrator
+ * Search Service — Single Entry Point for Search
  * Layer: Application
  * Pattern: Facade (simplifies access to the search subsystem)
  *
- * Think of this as the **receptionist at a doctor's office**: a patient (HTTP
- * request) walks in and says "I need to find a business." The receptionist
- * doesn't perform the search herself — she checks the mode, picks the right
- * specialist (strategy), and sends the patient there.
- *
- * This service has two responsibilities:
- *   1. search(): Resolves the correct strategy via SearchStrategyFactory,
- *      then delegates the search to it. The controller never knows (or cares)
- *      which algorithm ran.
- *   2. findByAbn(): Direct ABN lookup that bypasses strategies entirely —
- *      it's always a simple primary-key fetch, no algorithm choice needed.
- *      Throws NotFoundError (404) if the ABN doesn't exist.
- *
- * The service is @injectable so the DI container wires it up automatically;
- * controllers resolve it via TOKENS.SearchService.
+ * I treat this as the only place the controller talks to for search: it calls
+ * search() or findByAbn(). For search(), I resolve the right strategy (native
+ * vs optimized) via the factory and delegate — so the HTTP layer never cares
+ * which algorithm runs, which will help when we add AI search. findByAbn() is
+ * a direct key lookup, so I keep it here and throw NotFoundError (404) when
+ * the ABN doesn’t exist. The service is @injectable and resolved via
+ * TOKENS.SearchService.
  */
 import type { SearchStrategyFactory } from '@application/factories/SearchStrategyFactory';
 import { TOKENS } from '@core/types';
@@ -35,7 +27,7 @@ export class SearchService {
   ) {}
 
   async search(query: SearchQuery): Promise<PaginatedResult<Business>> {
-    const strategy = this.strategyFactory.create(query.mode ?? 'standard');
+    const strategy = this.strategyFactory.create(query);
     return strategy.execute(query);
   }
 

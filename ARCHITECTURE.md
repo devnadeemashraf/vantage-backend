@@ -7,7 +7,7 @@
 ## Table of Contents
 
 1. [Architecture Overview](#1-architecture-overview)
-2. [Clean Architecture Layers](#2-clean-architecture-layers)
+2. [Architecture Layers](#2-architecture-layers)
 3. [Design Patterns in Detail](#3-design-patterns-in-detail)
 4. [Database Performance Deep-Dive](#4-database-performance-deep-dive)
 5. [ETL Pipeline Internals](#5-etl-pipeline-internals)
@@ -21,7 +21,7 @@
 
 ## 1. Architecture Overview
 
-Vantage follows **Clean Architecture** (Robert C. Martin, 2012) — an approach where code is organized into concentric layers with a strict **Dependency Rule**: source code dependencies always point **inward**. Outer layers know about inner layers, but inner layers never know about outer layers.
+Vantage uses a **layered structure** with a clear **dependency direction**: source code dependencies point **inward** — outer layers depend on inner layers, not the other way around. The layout is inspired by layered-architecture ideas, without claiming a strict formal framework.
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
@@ -99,7 +99,7 @@ HTTP Response
 
 ---
 
-## 2. Clean Architecture Layers
+## 2. Architecture Layers
 
 ### 2.1 Domain Layer (`src/domain/`)
 

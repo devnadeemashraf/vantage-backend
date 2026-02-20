@@ -1,17 +1,9 @@
 /**
  * Integration Tests — Health Endpoint
  *
- * Verifies the `GET /api/v1/health` endpoint through the full Express
- * middleware chain (helmet, cors, compression, JSON parser, request logger,
- * and finally the route handler itself) using Supertest.
- *
- * Supertest creates an in-memory HTTP connection to the Express app — no
- * real port is bound, no network traffic leaves the machine. This makes
- * the test fast and free of port-conflict flakiness.
- *
- * The health endpoint is deliberately lightweight: it confirms the HTTP
- * server process is alive and returns uptime + timestamp metadata. It does
- * NOT ping the database, so these tests work without Docker / PostgreSQL.
+ * I call GET /api/v1/health through the full Express stack with Supertest
+ * (in-memory, no real port). I assert 200, JSON, and that we return status,
+ * uptime, and timestamp. No DB dependency.
  */
 import { createApp } from '@interfaces/http/app';
 import request from 'supertest';

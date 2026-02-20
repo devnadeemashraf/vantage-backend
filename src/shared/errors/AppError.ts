@@ -2,29 +2,12 @@
  * Custom Error Hierarchy
  * Layer: Shared
  *
- * Every app encounters two kinds of errors:
- *
- *   1. Operational errors — expected problems like "business not found" or
- *      "invalid ABN format". These are part of normal operation; we return
- *      a proper HTTP status (404, 400) and a friendly message to the client.
- *
- *   2. Programmer errors — unexpected bugs like null pointer dereferences or
- *      failed assertions. These get a generic 500 and are logged for debugging.
- *
- * The `isOperational` flag distinguishes the two. The global error handler
- * (errorHandler.ts) checks this flag to decide how to respond:
- *   - Operational: send the error's statusCode and message to the client.
- *   - Non-operational: send 500 "Internal server error" (never leak internals).
- *
- * Why `Object.setPrototypeOf(this, new.target.prototype)`?
- *   This is a TypeScript/ES2015 gotcha. When you `extends Error`, the prototype
- *   chain can break in some compilation targets, making `instanceof AppError`
- *   return false. This line manually fixes the chain so our error handler's
- *   `err instanceof AppError` check always works correctly.
- *
- * Subclasses (NotFoundError, ValidationError, ConflictError) are convenience
- * shortcuts so you never have to remember status codes — just throw the
- * right error type and the status is set automatically.
+ * I split errors into operational (expected — 404, 400, etc.; we send
+ * statusCode + message) and non-operational (bugs → 500, generic message).
+ * The error handler uses instanceof AppError and isOperational to decide.
+ * I use Object.setPrototypeOf(this, new.target.prototype) so instanceof
+ * works after extending Error in all build targets. Subclasses are just
+ * named status codes: NotFoundError, ValidationError, ConflictError.
  */
 export class AppError extends Error {
   public readonly statusCode: number;

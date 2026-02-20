@@ -3,27 +3,14 @@
  * Layer: Application
  * Pattern: Facade Pattern
  *
- * The Facade Pattern hides complex machinery behind a simple interface —
- * like a car's ignition button that starts the engine, fuel pump, and
- * electronics all at once. Here, calling `ingest(filePath)` hides:
- *   - Spawning a Worker Thread (separate V8 isolate)
- *   - Streaming XML through a SAX parser
- *   - Normalizing records via the Adapter
- *   - Batching and bulk-upserting into PostgreSQL
+ * I expose a single method ingest(filePath) so the controller (or seed script)
+ * doesn’t deal with worker threads, SAX, or batching. Inside we spawn a worker
+ * thread, stream the XML, normalize via the adapter, and bulk-upsert — all
+ * off the main thread so the API stays responsive during a 580MB parse.
  *
- * Why a Worker Thread?
- *   Node.js is single-threaded — parsing a 580MB XML file on the main thread
- *   would block the HTTP server for minutes, making the API unresponsive.
- *   Worker threads run in a separate V8 isolate with their own event loop,
- *   so the main thread stays free to serve HTTP requests.
- *
- * Communication model:
- *   Main thread → Worker: workerData (filePath, dbConfig, batchSize)
- *   Worker → Main thread: postMessage({ type: 'progress' | 'done' | 'error' })
- *
- * The `execArgv: ['--require', 'tsx/cjs']` tells the worker's Node.js
- * process to preload the tsx transpiler, so it can execute .ts files
- * directly without a prior build step.
+ * Main → worker: workerData (filePath, dbConfig, batchSize). Worker → main:
+ * postMessage with type 'progress', 'done', or 'error'. I use execArgv to
+ * preload tsx so the worker can run .ts files without a separate build.
  */
 import { config } from '@core/config';
 import type { Logger } from '@core/logger';

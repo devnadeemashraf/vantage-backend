@@ -1,33 +1,16 @@
 /**
- * PostgreSQL Business Repository — The Data Access Implementation
+ * PostgreSQL Business Repository — Data Access Implementation
  * Layer: Infrastructure
  * Pattern: Repository Pattern (implements IBusinessRepository)
  *
- * This is the concrete implementation of the IBusinessRepository interface
- * defined in the Domain layer. While the interface says "I need search",
- * this class says "here's HOW we search using PostgreSQL".
- *
- * This repository combines two PostgreSQL search strategies:
- *
- *   ts_rank (Full-Text Search):
- *     Uses the pre-computed search_vector column (tsvector) and the
- *     @@ operator. Great for linguistic matching — "plumber" finds "plumbing"
- *     because both share the stem "plumb". Weights (A/B/C/D) determine how
- *     important each field is in the ranking.
- *
- *   similarity() (Trigram / Fuzzy Search):
- *     Uses pg_trgm's similarity function. Great for typo tolerance —
- *     "Smithh" still finds "Smith" because the trigram overlap is high.
- *     SIMILARITY_THRESHOLD (0.3) is the minimum similarity score (0-1)
- *     a row must have to be included in results.
- *
- * The final relevance score blends both: 60% text rank + 40% trigram
- * similarity. This gives the best of both worlds — linguistic understanding
- * AND typo tolerance.
- *
- * The @injectable() decorator lets tsyringe construct this class automatically,
- * injecting the Knex instance and Logger via the DI container.
+ * I implement the domain’s IBusinessRepository using PostgreSQL and Knex.
+ * technique=native uses ILIKE on entity_name (sequential scan, ~350 ms on 9M
+ * rows — baseline). technique=optimized uses the search_vector column and GIN
+ * index from migration 003 (search_vector @@ to_tsquery), usually sub-50 ms.
+ * Both paths share runPaginatedSearch (capped total, full pagination); no
+ * search term → findWithFilters(). @injectable so tsyringe injects Knex and Logger.
  */
+import { config } from '@core/config';
 import type { Logger } from '@core/logger';
 import { TOKENS } from '@core/types';
 import type { Business, BusinessRow } from '@domain/entities/Business';
@@ -36,8 +19,6 @@ import type { IBusinessRepository } from '@domain/interfaces/IBusinessRepository
 import type { BusinessLookupResult, PaginatedResult, SearchQuery } from '@shared/types';
 import type { Knex } from 'knex';
 import { inject, injectable } from 'tsyringe';
-
-const SIMILARITY_THRESHOLD = 0.3;
 
 @injectable()
 export class PostgresBusinessRepository implements IBusinessRepository {
@@ -71,8 +52,7 @@ export class PostgresBusinessRepository implements IBusinessRepository {
     return new Map(rows.map((r) => [r.abn, r.id]));
   }
 
-  // Single-record lookup
-
+  /** Single business by ABN (unique index), including business_names. I track queryTimeMs for the API. */
   async findByAbn(abn: string): Promise<BusinessLookupResult<Business>> {
     const startMs = Date.now();
 
@@ -89,74 +69,87 @@ export class PostgresBusinessRepository implements IBusinessRepository {
     return { business: this.toDomain(row, nameRows), queryTimeMs };
   }
 
-  // Full-text + fuzzy search (tsvector + pg_trgm)
-
-  async search(query: SearchQuery): Promise<PaginatedResult<Business>> {
-    const { term, page, limit } = query;
-    if (!term) return this.findWithFilters(query);
-
-    const offset = (page - 1) * limit;
-    const tsQuery = this.buildTsQuery(term);
-
-    // Base query: combine tsvector rank (semantic) with trgm similarity (typo-tolerant).
-    // ts_rank weights: {D, C, B, A} — we set A=1.0 (entity_name) and B=0.4 (given/family).
-    // similarity() returns 0..1 based on trigram overlap.
-    // The final score blends both: 60% text rank + 40% trigram similarity.
-    const baseQuery = this.db('businesses')
-      .select(
-        'businesses.*',
-        this.db.raw(
-          `(
-            0.6 * ts_rank(search_vector, to_tsquery('english', ?), 32) +
-            0.4 * similarity(entity_name, ?)
-          ) AS relevance`,
-          [tsQuery, term],
-        ),
-      )
-      .where(function () {
-        this.whereRaw("search_vector @@ to_tsquery('english', ?)", [tsQuery]).orWhereRaw(
-          'similarity(entity_name, ?) > ?',
-          [term, SIMILARITY_THRESHOLD],
-        );
-      });
-
-    applyFilters(baseQuery, query);
-
-    const countQuery = baseQuery.clone().clearSelect().clearOrder().count('* as total').first();
-    const dataQuery = baseQuery.orderBy('relevance', 'desc').limit(limit).offset(offset);
-
-    const startMs = Date.now();
-    const [countResult, rows] = await Promise.all([countQuery, dataQuery]);
-    const queryTimeMs = Math.round(Date.now() - startMs);
-    const total = parseInt(String((countResult as { total: string })?.total ?? '0'), 10);
-
-    return {
-      data: rows.map((r: Record<string, unknown>) => this.toDomain(r)),
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit),
-      },
-      meta: { queryTimeMs },
-    };
+  /** Native path: ILIKE on entity_name only. No term → findWithFilters(). */
+  async searchNative(query: SearchQuery): Promise<PaginatedResult<Business>> {
+    if (!query.term) return this.findWithFilters(query);
+    const trimmedTerm = query.term.trim();
+    if (trimmedTerm.length === 0) return this.findWithFilters(query);
+    const base = this.buildSearchQuery(trimmedTerm, query);
+    return this.runPaginatedSearch(base, query);
   }
 
-  // Filter-only listing (no text search)
+  /** Optimized path: search_vector @@ to_tsquery so PG uses the GIN index (sub-50 ms vs ~350 ms ILIKE). */
+  async searchOptimized(query: SearchQuery): Promise<PaginatedResult<Business>> {
+    if (!query.term) return this.findWithFilters(query);
+    const trimmedTerm = query.term.trim();
+    if (trimmedTerm.length === 0) return this.findWithFilters(query);
 
+    const tsQuery = this.buildTsQuery(trimmedTerm);
+    if (tsQuery === '') return this.findWithFilters(query);
+
+    const base = this.buildFtsSearchQuery(tsQuery, query);
+    return this.runPaginatedSearch(base, query);
+  }
+
+  /** Filter-only listing (no term), same capped total and pagination as search. */
   async findWithFilters(query: SearchQuery): Promise<PaginatedResult<Business>> {
+    const base = this.buildSearchQuery(null, query);
+    return this.runPaginatedSearch(base, query);
+  }
+
+  /** Base query for native path: entity_name ILIKE when term present, plus filters. */
+  private buildSearchQuery(trimmedTerm: string | null, query: SearchQuery): Knex.QueryBuilder {
+    const qb = this.db('businesses');
+    if (trimmedTerm != null && trimmedTerm.length > 0) {
+      const pattern = `%${this.escapeLike(trimmedTerm)}%`;
+      qb.whereRaw("entity_name ILIKE ? ESCAPE E'\\\\'", [pattern]);
+    }
+    applyFilters(qb, query);
+    return qb;
+  }
+
+  /** Turn search term into tsquery: last word gets :* (prefix) so "plumbing syd" matches plumbing + sydney. */
+  private buildTsQuery(term: string): string {
+    const words = term.trim().split(/\s+/).filter(Boolean);
+    if (words.length === 0) return '';
+    const lastWord = words.pop()! + ':*';
+    return words.length > 0 ? [...words, lastWord].join(' & ') : lastWord;
+  }
+
+  /** Base query for optimized path: search_vector @@ to_tsquery + filters; GIN index avoids seq scan. */
+  private buildFtsSearchQuery(tsQuery: string, query: SearchQuery): Knex.QueryBuilder {
+    const qb = this.db('businesses').whereRaw("search_vector @@ to_tsquery('english', ?)", [
+      tsQuery,
+    ]);
+    applyFilters(qb, query);
+    return qb;
+  }
+
+  /** Capped count + page of data from base query. I cap total at maxCandidates so latency stays predictable. */
+  private async runPaginatedSearch(
+    baseQuery: Knex.QueryBuilder,
+    query: SearchQuery,
+  ): Promise<PaginatedResult<Business>> {
     const { page, limit } = query;
     const offset = (page - 1) * limit;
+    const { maxCandidates } = config.search;
 
-    const baseQuery = this.db('businesses').select('businesses.*');
-    applyFilters(baseQuery, query);
+    const cappedCountSubquery = baseQuery
+      .clone()
+      .select(this.db.raw('1'))
+      .orderBy('entity_name', 'asc')
+      .limit(maxCandidates)
+      .as('capped');
+    const countQuery = this.db.from(cappedCountSubquery).count('* as total').first();
 
-    const countQuery = baseQuery.clone().clearSelect().clearOrder().count('* as total').first();
-    const dataQuery = baseQuery.orderBy('entity_name', 'asc').limit(limit).offset(offset);
+    const dataQuery = baseQuery
+      .clone()
+      .select('businesses.*')
+      .orderBy('entity_name', 'asc')
+      .limit(limit)
+      .offset(offset);
 
-    const startMs = Date.now();
     const [countResult, rows] = await Promise.all([countQuery, dataQuery]);
-    const queryTimeMs = Math.round(Date.now() - startMs);
     const total = parseInt(String((countResult as { total: string })?.total ?? '0'), 10);
 
     return {
@@ -167,27 +160,15 @@ export class PostgresBusinessRepository implements IBusinessRepository {
         total,
         totalPages: Math.ceil(total / limit),
       },
-      meta: { queryTimeMs },
     };
   }
 
-  // Private helpers
-
-  /**
-   * Converts a raw search term into a tsquery string.
-   * "plumbing sydney" -> "plumbing:* & sydney:*"
-   * The :* suffix enables prefix matching ("plumb" matches "plumbing").
-   */
-  private buildTsQuery(term: string): string {
-    return term
-      .trim()
-      .split(/\s+/)
-      .filter(Boolean)
-      .map((word) => `${word}:*`)
-      .join(' & ');
+  /** Escape % and _ for safe use inside ILIKE (backslash as escape). */
+  private escapeLike(term: string): string {
+    return term.replace(/\\/g, '\\\\').replace(/%/g, '\\%').replace(/_/g, '\\_');
   }
 
-  /** Maps a snake_case DB row to the camelCase Business domain entity. */
+  /** Map snake_case row to camelCase Business (single place for this conversion). */
   private toDomain(row: Record<string, unknown>, names?: BusinessName[]): Business {
     return {
       id: row.id as number,
@@ -213,8 +194,8 @@ export class PostgresBusinessRepository implements IBusinessRepository {
     };
   }
 }
-// Shared filter application (used by both search and findWithFilters
 
+/** Apply optional state/postcode/entityType/abnStatus filters to the query builder. */
 function applyFilters(qb: Knex.QueryBuilder, query: SearchQuery): void {
   if (query.state) qb.where('state', query.state);
   if (query.postcode) qb.where('postcode', query.postcode);

@@ -2,20 +2,14 @@
  * Structured Logger (Pino)
  * Layer: Core
  *
- * Pino is a high-performance JSON logger — it outputs one JSON object per log
- * line, which makes logs machine-parseable by tools like Datadog, Grafana, or
- * the ELK stack in production.
+ * I use Pino so every log line is a JSON object — easy to ship to Datadog,
+ * Grafana, or ELK in production. In development I use pino-pretty so logs
+ * are readable (colors, timestamps, less noise).
  *
- * In development, raw JSON is hard to read, so we pipe it through `pino-pretty`
- * which adds colors, readable timestamps, and strips noisy fields like pid.
- *
- * Why Pino over Winston?
- *   Pino is ~5x faster because it defers string serialisation to a separate
- *   worker thread (pino.destination). For a high-throughput search API that
- *   logs every request, this matters.
- *
- * The exported `Logger` type lets other modules declare "I need a logger"
- * without coupling to Pino directly — useful for testing with a mock logger.
+ * I chose Pino over Winston mainly for performance: it defers serialisation
+ * to a worker thread, which helps when we log every request on a busy API.
+ * The exported `Logger` type lets services depend on "a logger" without
+ * coupling to Pino, so tests can inject a mock.
  */
 import pino from 'pino';
 

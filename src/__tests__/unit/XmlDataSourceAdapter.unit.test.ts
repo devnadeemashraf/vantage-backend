@@ -1,22 +1,9 @@
 /**
  * Unit Tests — XmlDataSourceAdapter
  *
- * The adapter's job is to transform a raw SAX-parsed ABR record into a clean
- * Business domain entity. The trickiest parts are:
- *
- *   1. Entity name resolution: IND (individual) records join givenNames +
- *      familyName into a single string, while non-IND records use
- *      mainEntityName directly.
- *
- *   2. Date parsing: ABR uses 8-digit strings ("20240605") with "19000101"
- *      as a sentinel meaning "not applicable". The adapter must convert
- *      these to proper Date objects or null.
- *
- *   3. OtherNames mapping: The raw `otherNames` array (trading names, DGR
- *      names) must map to the `businessNames` array on the Business entity.
- *
- * These tests use the fixtures from helpers/fixtures.ts to keep the data
- * consistent and the assertions focused on behaviour, not setup.
+ * I verify the adapter turns raw ABR records into Business entities: IND
+ * → entityName from givenNames + familyName; non-IND → mainEntityName;
+ * dates YYYYMMDD and "19000101" → null; otherNames → businessNames.
  */
 import { XmlDataSourceAdapter } from '@workers/etl/XmlDataSourceAdapter';
 

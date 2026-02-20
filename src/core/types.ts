@@ -2,23 +2,15 @@
  * Dependency Injection Tokens
  * Layer: Core
  *
- * In our DI system (tsyringe), every injectable dependency needs a unique
- * identifier so the container knows "when someone asks for X, give them Y."
+ * I use Symbol tokens so the container can match "when someone asks for X,
+ * give them Y" without string collisions. Each service holds a token
+ * (e.g. TOKENS.BusinessRepository) and gets the implementation registered
+ * in container.ts.
  *
- * Think of these tokens as **name badges at a conference**. When a service says
- * "I need the BusinessRepository", it holds up the TOKENS.BusinessRepository
- * badge, and the DI container matches it to the registered implementation
- * (PostgresBusinessRepository).
- *
- * Why Symbols instead of plain strings?
- *   Symbols are guaranteed unique — even `Symbol.for('Knex') === Symbol.for('Knex')`
- *   is true (global registry), but no accidental collision with a random string
- *   "Knex" elsewhere in the codebase. They also don't show up in JSON.stringify,
- *   keeping serialised output clean.
- *
- * Why are they grouped by architectural layer?
- *   So you can quickly scan which dependencies exist at each level. If you
- *   add a new repository or service, you register its token here first.
+ * I use Symbols instead of strings so there’s no accidental clash with
+ * another "Knex" in the codebase, and they don’t appear in JSON.stringify.
+ * I group them by layer so it’s obvious what’s available at each level when
+ * adding a new repo or service.
  */
 export const TOKENS = {
   // Infrastructure — low-level tools the app needs to function

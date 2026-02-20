@@ -2,20 +2,9 @@
  * Mock Repository Factory
  * Layer: Test Helpers
  *
- * Creates a mock IBusinessRepository where every method is a `jest.fn()`.
- * This is the test equivalent of a **stunt double** — it looks like the real
- * repository from the outside (same interface), but instead of hitting
- * PostgreSQL, it records every call and returns whatever you configure.
- *
- * Usage in a test:
- *   const repo = createMockRepository();
- *   repo.findByAbn.mockResolvedValue(sampleBusiness);
- *   // ... inject `repo` into the service under test
- *   expect(repo.findByAbn).toHaveBeenCalledWith('12345678901');
- *
- * Why a factory function instead of a plain object?
- *   Each test gets a fresh set of jest.fn() instances, so mock state
- *   (call counts, resolved values) never leaks between tests.
+ * I return an IBusinessRepository-shaped object with every method as jest.fn(),
+ * so tests can control return values and assert call args without a real DB.
+ * I’m a factory so each test gets fresh mocks and no state leaks.
  */
 import type { IBusinessRepository } from '@domain/interfaces/IBusinessRepository';
 
@@ -28,7 +17,8 @@ export function createMockRepository(): MockBusinessRepository {
     bulkUpsert: jest.fn(),
     bulkInsertNames: jest.fn(),
     findByAbn: jest.fn(),
-    search: jest.fn(),
+    searchNative: jest.fn(),
+    searchOptimized: jest.fn(),
     findWithFilters: jest.fn(),
     getIdsByAbns: jest.fn(),
   };

@@ -3,28 +3,12 @@
  * Layer: Interfaces (HTTP)
  * Pattern: Factory Function
  *
- * This function assembles the Express application by wiring together
- * middleware and routes. It's a factory (returns a new app instance)
- * rather than a singleton, which is important for two reasons:
- *
- *   1. Clustering: Each cluster worker process calls createApp() to get
- *      its own independent Express instance.
- *   2. Testing: Integration tests can call createApp() to get a fresh app
- *      for each test without shared state leaking between tests.
- *
- * Middleware ordering matters — it's an assembly line:
- *   1. requestTimer  — Records req.requestStartTime for totalTimeMs in responses.
- *   2. helmet()      — Sets security headers (CSP, X-Frame-Options, etc.)
- *   3. cors()        — Allows cross-origin requests from frontend apps.
- *   4. compression() — Gzips response bodies to reduce transfer size.
- *   5. express.json()— Parses JSON request bodies into req.body.
- *   6. requestLogger — Logs every request/response with timing.
- *   7. Routes        — The actual API endpoints.
- *   8. errorHandler  — MUST be last; catches errors from all routes above.
- *
- * The `import '@core/container'` side-effect import ensures the DI
- * container is bootstrapped before any route handler tries to resolve
- * dependencies from it.
+ * I return a new Express app each time so each cluster worker (and each
+ * integration test) gets its own instance with no shared state. I wire
+ * middleware in order: requestTimer first (for totalTimeMs), then
+ * helmet/cors/compression/json, requestLogger, routes, and errorHandler
+ * last so it catches everything. The side-effect import of @core/container
+ * bootstraps DI before any route resolves dependencies.
  */
 import '@core/container';
 

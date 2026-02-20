@@ -1,27 +1,16 @@
 /**
- * Business Entity — The Core Data Model
+ * Business Entity — Core Data Model
  * Layer: Domain
  *
- * This file defines two shapes for the same concept:
+ * I define two shapes for the same concept: Business (camelCase) for app code
+ * and BusinessRow (snake_case) for the database. That way we keep idiomatic
+ * TypeScript everywhere and only do the casing conversion in one place — the
+ * repository’s toDomain() in Infrastructure — so this file stays dependency-free.
  *
- *   Business     — camelCase, used everywhere in the application code.
- *   BusinessRow  — snake_case, mirrors the exact column names in PostgreSQL.
- *
- * Why two interfaces for the same data?
- *   JavaScript/TypeScript convention is camelCase (abnStatus), but SQL convention
- *   is snake_case (abn_status). Keeping both lets us:
- *     - Write clean, idiomatic TypeScript in services and controllers.
- *     - Send properly-cased data to the database without manual renaming
- *       scattered across the codebase.
- *   The mapping between the two happens in exactly ONE place: the repository's
- *   `toDomain()` method (Infrastructure layer), keeping this entity pure.
- *
- * Key fields:
- *   - abn:          The 11-digit Australian Business Number — unique identifier.
- *   - entityName:   For companies: the registered company name.
- *                   For individuals: "GivenName FamilyName".
- *   - businessNames: An array of related trading/business names (1-to-many).
- *   - search_vector: (DB-only, not here) auto-maintained full-text index column.
+ * Main fields: abn (11-digit Australian Business Number, unique), entityName
+ * (company name or "GivenName FamilyName" for individuals), businessNames
+ * (1-to-many trading/legal names). The search_vector column lives only in the
+ * DB and is maintained by a trigger; it’s not part of this entity.
  */
 import type { BusinessName } from './BusinessName';
 

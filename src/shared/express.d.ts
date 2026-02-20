@@ -2,9 +2,9 @@
  * Express Request Augmentation
  * Layer: Shared (type declarations)
  *
- * Extends the Express Request interface with application-specific properties.
- * The requestTimer middleware sets requestStartTime at the very beginning
- * of the request pipeline so controllers can compute total elapsed time.
+ * I extend Express Request with requestStartTime so the requestTimer
+ * middleware can record when the request entered the pipeline and
+ * controllers can compute totalTimeMs for responses.
  */
 declare global {
   namespace Express {

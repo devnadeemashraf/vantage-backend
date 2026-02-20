@@ -2,19 +2,10 @@
  * Migration 002 — Create the `business_names` Table
  * Layer: Infrastructure (Database)
  *
- * This table stores the 1-to-many trading names, DGR fund names, and other
- * alternate names associated with a business. One ABN can have many names:
- *
- *   businesses (1) ──< business_names (many)
- *
- * Design decisions:
- *   - `business_id` is a foreign key referencing businesses(id).
- *   - `ON DELETE CASCADE` means if a business row is deleted, all its names
- *     are automatically removed — no orphaned rows.
- *   - `name_type` uses 3-char codes from the ABR schema: 'TRD' (trading),
- *     'BN' (business name), 'DGR' (deductible gift recipient), etc.
- *   - An index on `business_id` speeds up the JOIN when fetching a business
- *     with all its names (common in the findByAbn endpoint).
+ * One business can have many names (trading, DGR, etc.). business_id references
+ * businesses(id) with ON DELETE CASCADE so names go when the business is
+ * deleted. name_type uses ABR codes (TRD, BN, DGR). I index business_id for
+ * fast JOINs when we load a business with its names (findByAbn).
  */
 import type { Knex } from 'knex';
 

@@ -1,33 +1,10 @@
 /**
  * Integration Tests — Business Search & ABN Lookup Endpoints
  *
- * Tests the full HTTP request lifecycle for business-related endpoints:
- *
- *   GET /api/v1/businesses/search?q=...  — paginated search
- *   GET /api/v1/businesses/:abn          — single ABN lookup
- *
- * Strategy:
- *   These tests exercise the real Express middleware chain, real controllers,
- *   and real service layer — but the IBusinessRepository is swapped out for
- *   a mock via the DI container. This verifies that all the layers are wired
- *   together correctly (route → controller → service → repository interface)
- *   without requiring a running PostgreSQL instance.
- *
- *   The mock repository is configured in `beforeAll` so every test starts
- *   with predictable return values. The DI container's `register()` method
- *   is called with `{ useValue: mockRepo }` which overrides the real
- *   PostgresBusinessRepository registration for the duration of the test.
- *
- *   IMPORTANT: The app must be created INSIDE `beforeAll`, AFTER the
- *   container override. Module-level code runs before lifecycle hooks,
- *   so creating the app at the top level would resolve the real repository
- *   from the container before the mock is registered.
- *
- * Why not test against a real database here?
- *   Real DB tests are valuable but belong in a dedicated E2E suite that runs
- *   separately (e.g. in CI with a Dockerised PostgreSQL). These integration
- *   tests focus on the HTTP contract: correct status codes, response shapes,
- *   header values, and error formatting — all verifiable without a DB.
+ * I hit the real Express stack (middleware → routes → controller → service)
+ * but swap the repository for a mock in the DI container so we don’t need
+ * PostgreSQL. I check status codes, response shape, and errors. The app is
+ * created inside beforeAll after the container override so the mock is used.
  */
 import { TOKENS } from '@core/types';
 import type { IBusinessRepository } from '@domain/interfaces/IBusinessRepository';
@@ -41,19 +18,7 @@ import { createMockRepository, MockBusinessRepository } from '../helpers/mockRep
 let app: Express;
 let mockRepo: MockBusinessRepository;
 
-/**
- * Override the DI container's BusinessRepository with a mock.
- *
- * Ordering matters here because tsyringe resolves the LAST registration:
- *   1. Import @core/container — this triggers the real registrations
- *      (PostgresBusinessRepository, SearchService, etc.).
- *   2. Override TOKENS.BusinessRepository with our mock — now it's the
- *      last registration and wins on resolve().
- *   3. Import and call createApp() — the side-effect `import '@core/container'`
- *      in app.ts is a cache hit (no-op), so our mock stays on top.
- *      businessRoutes.ts then creates BusinessController which resolves
- *      SearchService → SearchStrategyFactory → both get the mock repo.
- */
+/** Register mock repo so tsyringe resolves it (last registration wins); then create app. */
 beforeAll(async () => {
   await import('@core/container');
 
@@ -72,11 +37,13 @@ afterEach(() => {
 
 describe('GET /api/v1/businesses/search', () => {
   it('should return 200 with paginated results and timing meta', async () => {
-    mockRepo.search.mockResolvedValue({
+    const paginated = {
       data: [sampleBusiness],
       pagination: { page: 1, limit: 20, total: 1, totalPages: 1 },
       meta: { queryTimeMs: 5 },
-    });
+    };
+    mockRepo.searchNative.mockResolvedValue(paginated);
+    mockRepo.searchOptimized.mockResolvedValue(paginated);
 
     const res = await request(app).get('/api/v1/businesses/search?q=vantage');
 
@@ -95,8 +62,21 @@ describe('GET /api/v1/businesses/search', () => {
     expect(typeof res.body.meta.queryTimeMs).toBe('number');
   });
 
+  it('should use optimized strategy when technique=optimized', async () => {
+    const paginated = {
+      data: [sampleBusiness],
+      pagination: { page: 1, limit: 20, total: 1, totalPages: 1 },
+    };
+    mockRepo.searchOptimized.mockResolvedValue(paginated);
+
+    const res = await request(app).get('/api/v1/businesses/search?q=vantage&technique=optimized');
+
+    expect(res.status).toBe(200);
+    expect(mockRepo.searchOptimized).toHaveBeenCalled();
+  });
+
   it('should return an empty paginated array when no results match', async () => {
-    mockRepo.search.mockResolvedValue({
+    mockRepo.searchNative.mockResolvedValue({
       data: [],
       pagination: { page: 1, limit: 20, total: 0, totalPages: 0 },
       meta: { queryTimeMs: 2 },
@@ -123,7 +103,7 @@ describe('GET /api/v1/businesses/search', () => {
   });
 
   it('should respect page and limit query params', async () => {
-    mockRepo.search.mockResolvedValue({
+    mockRepo.searchNative.mockResolvedValue({
       data: [],
       pagination: { page: 2, limit: 5, total: 50, totalPages: 10 },
       meta: { queryTimeMs: 1 },
@@ -137,7 +117,7 @@ describe('GET /api/v1/businesses/search', () => {
   });
 
   it('should return JSON content type', async () => {
-    mockRepo.search.mockResolvedValue({
+    mockRepo.searchNative.mockResolvedValue({
       data: [],
       pagination: { page: 1, limit: 20, total: 0, totalPages: 0 },
       meta: { queryTimeMs: 0 },

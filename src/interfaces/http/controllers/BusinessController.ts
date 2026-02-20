@@ -1,24 +1,12 @@
 /**
- * Business Controller — HTTP Request Handler for Search & Lookup
+ * Business Controller — HTTP Boundary for Search & Lookup
  * Layer: Interfaces (HTTP)
  *
- * Controllers are the **thin boundary** between HTTP and the application.
- * Their only job is to:
- *   1. Extract data from the HTTP request (query params, path params, body).
- *   2. Call the appropriate service method.
- *   3. Format and send the HTTP response.
- *
- * They should contain NO business logic — no database queries, no search
- * algorithms, no data transformation. If you find yourself writing an `if`
- * that involves business rules in a controller, it belongs in a service.
- *
- * The controller resolves SearchService from the DI container at construction
- * time, so it's fully decoupled from the service's dependencies (repository,
- * strategies, etc.).
- *
- * Arrow-function methods (search = async ...) are used instead of regular
- * methods so that `this` is lexically bound — Express can call them as
- * standalone callbacks without losing the class context.
+ * I keep this thin: read query/path params, call SearchService, send JSON.
+ * No business logic or DB access here — that stays in the service. I
+ * resolve SearchService from the container in the constructor. Arrow
+ * functions (search = async ...) keep `this` bound when Express invokes
+ * them as route handlers.
  */
 import { SearchService } from '@application/services/SearchService';
 import { container } from '@core/container';
@@ -43,6 +31,7 @@ export class BusinessController {
       page = '1',
       limit = String(DEFAULT_PAGE_SIZE),
       mode = 'standard',
+      technique = 'native',
     } = req.query as Record<string, string>;
 
     const pageNum = Math.max(1, parseInt(page, 10) || 1);
@@ -57,6 +46,7 @@ export class BusinessController {
       page: pageNum,
       limit: limitNum,
       mode: mode as 'standard' | 'ai',
+      technique: technique as 'native' | 'optimized',
     });
 
     const totalTimeMs =

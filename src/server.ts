@@ -2,31 +2,11 @@
  * Server Entry Point — Clustering & Graceful Shutdown
  * Layer: Entry Point (top of the dependency tree)
  *
- * This is the file that starts when you run `npm start` or `npm run dev`.
- * It uses Node.js's built-in `cluster` module to create multiple copies
- * of the HTTP server — one per CPU core.
- *
- * Think of it as a **restaurant with a head chef and line cooks**:
- *   - The PRIMARY process (head chef) doesn't serve any HTTP requests itself.
- *     It forks N worker processes and monitors them. If a worker crashes,
- *     the primary automatically spawns a replacement.
- *   - Each WORKER process (line cook) runs its own Express app with its own
- *     DB connection pool. They all share the same port — the OS kernel
- *     load-balances incoming connections across them (round-robin on Linux,
- *     random on Windows/macOS).
- *
- * Why cluster?
- *   Node.js is single-threaded — one process can only use one CPU core.
- *   On a 4-core machine, a single process leaves 75% of CPU capacity idle.
- *   Clustering creates 4 processes so all cores are utilised. Each process
- *   handles requests independently, achieving near-linear throughput scaling.
- *
- * Graceful shutdown:
- *   On SIGTERM/SIGINT (e.g., Ctrl+C or container stop), each worker:
- *     1. Stops accepting new connections (server.close()).
- *     2. Waits for in-flight requests to finish.
- *     3. Destroys the DB connection pool (releases connections back to PG).
- *     4. Exits cleanly with code 0.
+ * This is what runs on `npm start` / `npm run dev`. I use the cluster module
+ * so we run one HTTP worker per CPU core; the primary only forks and restarts
+ * workers, it doesn’t serve traffic. Each worker has its own Express app and
+ * DB pool and shares the same port (OS load-balances). On SIGTERM/SIGINT I
+ * close the server, drain in-flight requests, destroy the pool, then exit 0.
  */
 import cluster from 'node:cluster';
 import os from 'node:os';

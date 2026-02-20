@@ -1,35 +1,14 @@
 /**
- * ETL Worker Thread — The XML Ingestion Engine
+ * ETL Worker Thread — XML Ingestion Engine
  * Layer: Workers (ETL)
  *
- * This file runs in a SEPARATE V8 isolate via Node.js worker_threads.
- * It is NOT part of the HTTP server — it's spawned on-demand by the
- * IngestionService or the seed CLI script.
- *
- * How it works (SAX Streaming):
- *   Instead of loading the entire 580MB XML file into memory (which would
- *   need ~2-3GB of RAM after parsing), we use a SAX (Simple API for XML)
- *   parser that reads the file like a **conveyor belt** — one element at a
- *   time, left to right. As each XML tag opens/closes, the parser fires
- *   events (opentag, text, closetag) and we react to them.
- *
- *   Think of it as reading a book page by page and taking notes, vs.
- *   photocopying the entire book into memory first. SAX uses constant
- *   memory regardless of file size — perfect for large datasets.
- *
- * The `elementStack` acts as a **breadcrumb trail**: it tracks which XML
- * elements we're currently nested inside. This is crucial because the
- * same tag name (e.g., "NonIndividualNameText") appears under different
- * parents (MainEntity vs OtherEntity), and we need the parent context
- * to know where to store the value.
- *
- * Communication with the main thread:
- *   IN:  workerData = { filePath, dbConfig, batchSize }
- *   OUT: postMessage({ type: 'progress', processed: N })      — every 10k records
- *        postMessage({ type: 'done', result: IngestionResult }) — on completion
- *        postMessage({ type: 'error', message: string })        — on failure
- *
- * The stream pipeline: FileReadStream → SAX Parser → Adapter → BatchProcessor → PostgreSQL
+ * I run in a separate worker thread (spawned by IngestionService or the seed
+ * script), not in the HTTP process. I use SAX so we never load the full 580MB
+ * into memory — we stream and react to opentag/text/closetag events. elementStack
+ * tracks where we are in the tree so we can tell MainEntity’s NonIndividualNameText
+ * from OtherEntity’s (same tag name, different parent). Main thread sends
+ * workerData (filePath, dbConfig, batchSize); we postMessage progress, done,
+ * or error. Pipeline: FileReadStream → SAX → Adapter → BatchProcessor → PostgreSQL.
  */
 import { createReadStream } from 'fs';
 import sax from 'sax';
@@ -58,7 +37,7 @@ const { filePath, dbConfig, batchSize } = workerData as {
 const adapter = new XmlDataSourceAdapter();
 const processor = new BatchProcessor(dbConfig, batchSize);
 
-// SAX parser state
+// Parser state: current record, element stack (for parent context), and text accumulator
 let currentRecord: RawAbrRecord | null = null;
 const elementStack: string[] = [];
 let currentText = '';
@@ -185,11 +164,8 @@ parser.on('end', async () => {
   }
 });
 
-// Kick off the stream pipeline
 const fileStream = createReadStream(filePath, { encoding: 'utf-8', highWaterMark: 64 * 1024 });
 fileStream.pipe(parser);
-
-// Helpers
 
 function parentElement(): string {
   return elementStack.length >= 2 ? elementStack[elementStack.length - 2] : '';
@@ -199,8 +175,7 @@ function handleRecordClose(): void {
   if (!currentRecord || !currentRecord.abn) return;
 
   const entity = adapter.normalize(currentRecord);
-  // Use a fire-and-forget pattern; backpressure is handled by the batch buffer.
-  // If the DB write is slower than parsing, the buffer grows until flush completes.
+  // Fire-and-forget add(); the batch buffer absorbs backpressure if DB is slower than parsing.
   processor.add(entity).catch((err) => {
     parentPort?.postMessage({
       type: 'error',

@@ -2,16 +2,10 @@
  * Request Timer Middleware
  * Layer: Interfaces (HTTP)
  *
- * Records the wall-clock timestamp at the moment a request enters the pipeline.
- * Controllers use this (via req.requestStartTime) to compute totalTimeMs —
- * the time from request arrival to response sent — and include it in API responses.
- *
- * MUST be registered as the first middleware in the stack so the measurement
- * starts as early as possible (before body parsing, logging, etc.).
- *
- * Uses Date.now() for millisecond precision; sufficient for displaying "42ms"
- * to end users. For sub-millisecond profiling, process.hrtime.bigint() could
- * be used instead.
+ * I set req.requestStartTime when the request hits the stack so controllers
+ * can compute totalTimeMs for the response. I’m registered first so the
+ * measurement includes the full pipeline. Date.now() is enough for “42ms”
+ * in API responses.
  */
 import type { NextFunction, Request, Response } from 'express';
 

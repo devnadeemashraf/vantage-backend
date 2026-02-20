@@ -1,21 +1,10 @@
 /**
  * Unit Tests — SearchService
  *
- * The SearchService is the application-layer orchestrator that sits between
- * HTTP controllers and the search subsystem. It has two responsibilities:
- *
- *   1. search() — delegates to a strategy resolved by SearchStrategyFactory.
- *   2. findByAbn() — direct repository lookup; throws NotFoundError on miss.
- *
- * Testing approach:
- *   Both the repository AND the factory/strategy are mocked. We don't test
- *   whether PostgreSQL queries work (that's for integration tests) — we test
- *   that the service correctly wires delegation, passes arguments through,
- *   and handles the "not found" edge case.
- *
- *   The factory mock returns a mock strategy whose `execute()` we control,
- *   so each test can specify exactly what the "search algorithm" returns
- *   without needing any real implementation.
+ * I test that search() delegates to the factory’s strategy and that
+ * findByAbn() returns the repo result or throws NotFoundError. Repo and
+ * factory/strategy are mocked so we only assert wiring and behaviour, not
+ * the DB.
  */
 import { SearchStrategyFactory } from '@application/factories/SearchStrategyFactory';
 import { SearchService } from '@application/services/SearchService';
@@ -56,26 +45,26 @@ describe('SearchService', () => {
 
       const result = await service.search(sampleSearchQuery);
 
-      expect(mockFactory.create).toHaveBeenCalledWith('standard');
+      expect(mockFactory.create).toHaveBeenCalledWith(sampleSearchQuery);
       expect(mockStrategy.execute).toHaveBeenCalledWith(sampleSearchQuery);
       expect(result).toEqual(paginatedResult);
     });
 
-    it('should pass the query mode to the factory', async () => {
+    it('should pass the full query (including technique) to the factory', async () => {
       mockStrategy.execute.mockResolvedValue(paginatedResult);
 
       await service.search(sampleFilterQuery);
 
-      expect(mockFactory.create).toHaveBeenCalledWith('standard');
+      expect(mockFactory.create).toHaveBeenCalledWith(sampleFilterQuery);
     });
 
-    it('should default to "standard" mode when mode is undefined', async () => {
-      const queryNoMode = { term: 'test', page: 1, limit: 10 };
+    it('should pass the query when technique is undefined (defaults to native in factory)', async () => {
+      const queryNoTechnique = { term: 'test', page: 1, limit: 10 };
       mockStrategy.execute.mockResolvedValue(paginatedResult);
 
-      await service.search(queryNoMode);
+      await service.search(queryNoTechnique);
 
-      expect(mockFactory.create).toHaveBeenCalledWith('standard');
+      expect(mockFactory.create).toHaveBeenCalledWith(queryNoTechnique);
     });
 
     it('should propagate errors from the strategy', async () => {

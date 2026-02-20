@@ -2,18 +2,10 @@
  * Application Constants — ABR Reference Data
  * Layer: Shared
  *
- * These values come directly from the Australian Business Register (ABR)
- * XML schema documentation. They define the valid codes the ABR uses for
- * statuses, states, entity types, and name types.
- *
- * All objects use `as const`, which tells TypeScript to treat the values
- * as literal types rather than generic strings. For example:
- *   - Without `as const`: ABN_STATUS.ACTIVE is typed as `string`
- *   - With `as const`:    ABN_STATUS.ACTIVE is typed as `'ACT'`
- * This enables exhaustive switch statements and narrower type checks.
- *
- * DEFAULT_PAGE_SIZE and MAX_PAGE_SIZE enforce pagination boundaries so
- * a client can never accidentally request millions of rows in one call.
+ * I keep ABR schema codes (statuses, states, entity types, name types) here
+ * so validation and docs stay in sync. I use `as const` so we get literal
+ * types (e.g. 'ACT') instead of string. DEFAULT_PAGE_SIZE and MAX_PAGE_SIZE
+ * cap pagination so clients can’t request huge result sets.
  */
 
 /** ABN status codes from the ABR schema. */

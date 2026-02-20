@@ -3,43 +3,39 @@
  * Layer: Application
  * Pattern: Factory Pattern
  *
- * The Factory Pattern is like a **vending machine**: you press a button
- * (pass a `mode` string), and it dispenses the right product (strategy
- * instance) without you needing to know how it was built.
- *
- * This factory is the single place that maps mode -> strategy:
- *   'standard' -> StandardSearchStrategy (PostgreSQL full-text + fuzzy)
- *   'ai'       -> AiSearchStrategy       (not yet implemented, throws 501)
- *
- * Open/Closed Principle:
- *   To add a new search mode, you add a new `case` here and a new strategy
- *   class — you never modify the existing StandardSearchStrategy or the
- *   SearchService. The existing code is "closed" to modification but "open"
- *   to extension.
- *
- * The factory receives the repository via DI (@inject) and passes it to
- * whichever strategy it constructs, keeping strategies stateless and testable.
+ * I map the request’s mode and technique to the right strategy: mode=ai → 501
+ * for now; technique=optimized → OptimizedSearchStrategy (index-backed);
+ * otherwise NativeSearchStrategy (ILIKE baseline). The factory gets the repo
+ * via DI and passes it into whichever strategy it builds per request.
  */
-import { StandardSearchStrategy } from '@application/strategies/StandardSearchStrategy';
+import { NativeSearchStrategy } from '@application/strategies/NativeSearchStrategy';
+import { OptimizedSearchStrategy } from '@application/strategies/OptimizedSearchStrategy';
 import { TOKENS } from '@core/types';
 import type { ISearchStrategy } from '@domain/interfaces/ISearchStrategy';
 import { AppError } from '@shared/errors/AppError';
+import type { SearchQuery } from '@shared/types';
 import { inject, injectable } from 'tsyringe';
 
 @injectable()
 export class SearchStrategyFactory {
   constructor(@inject(TOKENS.BusinessRepository) private _repo: unknown) {}
 
-  create(mode: 'standard' | 'ai' = 'standard'): ISearchStrategy {
-    switch (mode) {
-      case 'standard':
-        return new StandardSearchStrategy(
-          this._repo as ConstructorParameters<typeof StandardSearchStrategy>[0],
+  create(query: SearchQuery): ISearchStrategy {
+    if (query.mode === 'ai') {
+      throw new AppError('AI search is not yet configured', 501);
+    }
+    const technique = query.technique ?? 'native';
+    switch (technique) {
+      case 'optimized':
+        return new OptimizedSearchStrategy(
+          this._repo as ConstructorParameters<typeof OptimizedSearchStrategy>[0],
         );
-      case 'ai':
-        throw new AppError('AI search is not yet configured', 501);
+      case 'native':
+        return new NativeSearchStrategy(
+          this._repo as ConstructorParameters<typeof NativeSearchStrategy>[0],
+        );
       default:
-        throw new AppError(`Unknown search mode: ${mode}`, 400);
+        throw new AppError(`Unknown search technique: ${technique}`, 400);
     }
   }
 }

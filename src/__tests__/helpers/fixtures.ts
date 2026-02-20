@@ -2,17 +2,10 @@
  * Test Fixtures — Reusable Sample Data
  * Layer: Test Helpers
  *
- * Fixtures are pre-built data objects that tests can import instead of
- * duplicating setup across every file. Think of them as **mannequins in
- * a clothing store** — each one is posed with a known outfit (data shape)
- * so you can quickly see how things look without dressing a new one each time.
- *
- * Convention:
- *   - `sample*` prefix = a single complete object.
- *   - Dates use a fixed point in time so snapshot tests are deterministic.
- *   - Fields are realistic but obviously fake (e.g. ABN '53004085616' is the
- *     well-known ABN for the Australian Taxation Office, handy for manual
- *     cross-checking).
+ * I keep shared test data here so we don’t repeat the same objects in every
+ * test. sample* = one complete object; dates are fixed for determinism.
+ * ABNs and names are realistic but fake (e.g. 53004085616 is the ATO’s real
+ * ABN, useful for manual checks).
  */
 import type { Business } from '@domain/entities/Business';
 import type { SearchQuery } from '@shared/types';
@@ -130,12 +123,13 @@ export const sampleRawRecordWithSentinelDate: RawAbrRecord = {
   otherNames: [],
 };
 
-/** A standard paginated search query. */
+/** A standard paginated search query (technique=native). */
 export const sampleSearchQuery: SearchQuery = {
   term: 'plumbing',
   page: 1,
   limit: 20,
   mode: 'standard',
+  technique: 'native',
 };
 
 /** A search query requesting AI mode (should throw 501 via the factory). */

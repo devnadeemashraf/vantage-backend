@@ -2,25 +2,19 @@
  * Application Configuration — Single Source of Truth
  * Layer: Core
  *
- * Every setting the app needs (port, DB credentials, batch sizes, etc.) flows
- * through this one file. Think of it as the reception desk of a hotel:
- * you check in here once, your details are validated, and then every floor
- * (module) can look you up from the same registry.
+ * I funnel all app settings (port, DB credentials, batch sizes, etc.) through
+ * this file so there’s one place to look and one place to validate. Every other
+ * module imports `config` instead of reading process.env directly.
  *
- * How it works:
- *   1. `dotenv/config` loads the .env file into process.env.
- *   2. A Zod schema acts as a gatekeeper — it validates every env var at
- *      startup and coerces strings to the correct types (e.g. "5432" -> 5432).
- *      If anything is missing or invalid, the app crashes immediately with a
- *      clear error instead of failing mysteriously later at runtime.
- *   3. The validated values are reshaped into a clean, nested `config` object
- *      exported with `as const` so TypeScript treats every value as a literal
- *      type — no accidental mutation and full autocompletion everywhere.
+ * Flow: dotenv loads .env into process.env; a Zod schema validates and coerces
+ * (e.g. "5432" → 5432) at startup. If anything is missing or invalid, the app
+ * exits immediately with a clear error — I prefer fail-fast over mysterious
+ * runtime failures. The result is a nested `config` object exported with
+ * `as const` for literal types and no accidental mutation.
  *
- * Why Zod for env validation?
- *   - Zod gives us runtime type-checking (TypeScript types disappear at runtime).
- *   - `.default()` provides sensible fallbacks for local dev.
- *   - `.coerce` converts strings (which process.env always provides) to numbers.
+ * I use Zod for env validation because TypeScript types are erased at runtime;
+ * Zod gives real runtime checks. `.default()` and `.coerce` handle local dev
+ * and string-to-number conversion without extra code.
  */
 import 'dotenv/config';
 
@@ -45,6 +39,11 @@ const envSchema = z.object({
 
   ETL_BATCH_SIZE: z.coerce.number().default(5000),
   ETL_DATA_DIR: z.string().default('./temp'),
+
+  /** Max candidate IDs considered for search (caps work for stable latency; also max paginatable total). */
+  SEARCH_MAX_CANDIDATES: z.coerce.number().min(100).max(50_000).default(5000),
+  /** Terms this length or shorter use prefix-only (ILIKE term%) for bounded, fast response. */
+  SEARCH_SHORT_QUERY_MAX_LENGTH: z.coerce.number().min(1).max(5).default(2),
 });
 
 const parsed = envSchema.safeParse(process.env);
@@ -86,6 +85,12 @@ export const config = {
   etl: {
     batchSize: env.ETL_BATCH_SIZE,
     dataDir: env.ETL_DATA_DIR,
+  },
+
+  /** Search performance: candidate cap and short-query behaviour (see PostgresBusinessRepository). */
+  search: {
+    maxCandidates: env.SEARCH_MAX_CANDIDATES,
+    shortQueryMaxLength: env.SEARCH_SHORT_QUERY_MAX_LENGTH,
   },
 } as const;
 

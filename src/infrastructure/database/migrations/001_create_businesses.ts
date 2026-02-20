@@ -2,22 +2,11 @@
  * Migration 001 — Create the `businesses` Table
  * Layer: Infrastructure (Database)
  *
- * This is a Knex "migration" — a versioned script that modifies the database
- * schema. Migrations run in order (001, 002, 003...) and are tracked in a
- * `knex_migrations` table so they only execute once. Think of them as **git
- * commits for your database schema**: you can roll forward (`up`) or roll
- * back (`down`).
- *
- * The `businesses` table is the primary table — one row per Australian
- * Business Number (ABN). Key design decisions:
- *
- *   - `abn` is UNIQUE and has a max length of 11 chars (ABN spec).
- *   - `search_vector` is a TSVECTOR column — PostgreSQL's built-in full-text
- *     search data type. It's populated by a trigger (see migration 003).
- *   - B-tree indexes on abn_status, entity_type_code, state, postcode enable
- *     fast equality filtering (WHERE state = 'NSW') without scanning all rows.
- *   - `timestamps(true, true)` adds `created_at` and `updated_at` columns
- *     with auto-maintained defaults.
+ * I use Knex migrations so schema changes are versioned and run once (tracked
+ * in knex_migrations). One row per ABN; abn is UNIQUE (11 chars). search_vector
+ * is TSVECTOR, filled by a trigger in 003. I add B-tree indexes on abn_status,
+ * entity_type_code, state, postcode for fast filters; timestamps() gives
+ * created_at/updated_at.
  */
 import type { Knex } from 'knex';
 

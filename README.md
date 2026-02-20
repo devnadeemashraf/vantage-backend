@@ -15,7 +15,7 @@ Built with **Node.js 24**, **Express 5**, **TypeScript 5.9**, and **PostgreSQL 1
 | **Typo-tolerant search**               | `similarity()` catches "Plumbng" when you meant "Plumbing"                                          |
 | **Linguistic search**                  | `ts_rank()` matches "plumber" to "plumbing" via English stemming                                    |
 | **Multi-process HTTP**                 | Node.js `cluster` module forks one worker per CPU core for near-linear throughput scaling           |
-| **Clean Architecture**                 | Strict layer separation (Domain, Application, Infrastructure, Interfaces) with Dependency Injection |
+| **Layered architecture**               | Clear layer separation (Domain, Application, Infrastructure, Interfaces) with Dependency Injection  |
 | **AI-ready**                           | Abstraction layer for plugging in a Text-to-SQL engine (OpenAI, SQLCoder, etc.)                     |
 
 ---
@@ -100,6 +100,13 @@ GIN indexes act like a book's back-of-book index — mapping each lexeme/trigram
 - `business_names.name_text` (trigram ops) — fuzzy trading name search
 
 The search query blends both scores: **60% text rank + 40% trigram similarity**, giving the best of linguistic understanding and typo tolerance.
+
+### 4. Configurable candidate cap & short-query path
+
+To keep response time in a narrow band (e.g. for "a" vs "astonished"):
+
+- **SEARCH_MAX_CANDIDATES** (default `5000`): Maximum number of candidate IDs considered for relevance and pagination. Total results and the count query are capped at this value, so you can paginate through all of them (e.g. 5000 → 250 pages at 20 per page). Increase to allow deeper pagination; decrease to prioritise latency.
+- **SEARCH_SHORT_QUERY_MAX_LENGTH** (default `2`): Terms with this many characters or fewer (e.g. `"a"`, `"ab"`) use a fast prefix-only path (`entity_name ILIKE term%`) instead of full-text + trigram, avoiding runaway matches and keeping latency stable.
 
 ---
 
@@ -222,6 +229,7 @@ GET /api/v1/businesses/search?q=plumbing&state=NSW&page=1&limit=20
 ```
 
 **Response** includes `meta` with timing for UI display:
+
 ```json
 {
   "status": "success",
@@ -233,6 +241,7 @@ GET /api/v1/businesses/search?q=plumbing&state=NSW&page=1&limit=20
   }
 }
 ```
+
 - `totalTimeMs` — wall-clock time from request arrival to response sent (ms)
 - `queryTimeMs` — time spent executing database queries (ms)
 
@@ -247,6 +256,7 @@ Query Parameters:
 | `page` | number | Page number (default: 1) |
 | `limit` | number | Results per page (default: 20, max: 100) |
 | `mode` | string | Search mode: `standard` or `ai` (future) |
+| `technique` | string | Search technique: `native` (ILIKE baseline) or `optimized` (index-backed when available). Default: `native`. Use to compare query performance. |
 
 ### Lookup by ABN
 
@@ -255,6 +265,7 @@ GET /api/v1/businesses/12345678901
 ```
 
 **Response** includes `meta` with timing:
+
 ```json
 {
   "status": "success",

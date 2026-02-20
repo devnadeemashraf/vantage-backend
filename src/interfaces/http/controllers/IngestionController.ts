@@ -1,18 +1,10 @@
 /**
- * Ingestion Controller — HTTP Trigger for ETL Pipeline
+ * Ingestion Controller — HTTP Trigger for ETL
  * Layer: Interfaces (HTTP)
  *
- * Provides an HTTP endpoint to kick off data ingestion. The controller
- * extracts the file path from the request body, validates it, and delegates
- * to the IngestionService which handles spawning the worker thread.
- *
- * This is intentionally a simple pass-through — the heavy lifting (XML
- * parsing, batching, upserting) all happens in the worker thread via the
- * IngestionService facade. The controller just bridges HTTP ↔ Application.
- *
- * In production, you'd likely protect this endpoint with authentication
- * middleware (admin-only) since triggering a full ETL run is an expensive
- * operation.
+ * I expose one endpoint: POST with filePath in the body. I validate and
+ * pass through to IngestionService; the worker thread does the real work.
+ * In production I’d add auth (e.g. admin-only) since ETL is expensive.
  */
 import { IngestionService } from '@application/services/IngestionService';
 import { container } from '@core/container';

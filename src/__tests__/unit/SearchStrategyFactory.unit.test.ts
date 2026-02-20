@@ -1,25 +1,15 @@
 /**
  * Unit Tests — SearchStrategyFactory
  *
- * The factory is responsible for mapping a `mode` string to the correct
- * search strategy implementation:
- *
- *   'standard' → StandardSearchStrategy (PostgreSQL full-text + fuzzy)
- *   'ai'       → throws 501 (not yet implemented)
- *   anything   → throws 400 (unknown mode)
- *
- * These tests verify the factory's branching logic WITHOUT touching the
- * database. The repository injected into the factory is a mock — the
- * strategy instances are real, but since we never call `execute()` here,
- * no DB queries fire.
- *
- * The factory test doubles as a regression guard: if someone adds a new
- * mode and forgets to wire a strategy, the "unknown mode" test will catch
- * the oversight.
+ * I check that the factory returns the right strategy (or throws) for each
+ * mode/technique: ai → 501, optimized → OptimizedSearchStrategy, native →
+ * NativeSearchStrategy, unknown → 400.
  */
 import { SearchStrategyFactory } from '@application/factories/SearchStrategyFactory';
-import { StandardSearchStrategy } from '@application/strategies/StandardSearchStrategy';
+import { NativeSearchStrategy } from '@application/strategies/NativeSearchStrategy';
+import { OptimizedSearchStrategy } from '@application/strategies/OptimizedSearchStrategy';
 import { AppError } from '@shared/errors/AppError';
+import type { SearchQuery } from '@shared/types';
 
 import { createMockRepository } from '../helpers/mockRepository';
 
@@ -32,23 +22,33 @@ describe('SearchStrategyFactory', () => {
   });
 
   describe('create()', () => {
-    it('should return a StandardSearchStrategy for mode "standard"', () => {
-      const strategy = factory.create('standard');
+    it('should return NativeSearchStrategy for technique "native"', () => {
+      const query: SearchQuery = { term: 'test', page: 1, limit: 20, technique: 'native' };
+      const strategy = factory.create(query);
 
-      expect(strategy).toBeInstanceOf(StandardSearchStrategy);
+      expect(strategy).toBeInstanceOf(NativeSearchStrategy);
     });
 
-    it('should default to "standard" when no mode is provided', () => {
-      const strategy = factory.create();
+    it('should return NativeSearchStrategy when technique is undefined (default)', () => {
+      const query: SearchQuery = { term: 'test', page: 1, limit: 20 };
+      const strategy = factory.create(query);
 
-      expect(strategy).toBeInstanceOf(StandardSearchStrategy);
+      expect(strategy).toBeInstanceOf(NativeSearchStrategy);
+    });
+
+    it('should return OptimizedSearchStrategy for technique "optimized"', () => {
+      const query: SearchQuery = { term: 'test', page: 1, limit: 20, technique: 'optimized' };
+      const strategy = factory.create(query);
+
+      expect(strategy).toBeInstanceOf(OptimizedSearchStrategy);
     });
 
     it('should throw a 501 AppError for mode "ai"', () => {
-      expect(() => factory.create('ai')).toThrow(AppError);
+      const query: SearchQuery = { term: 'find plumbers', page: 1, limit: 20, mode: 'ai' };
+      expect(() => factory.create(query)).toThrow(AppError);
 
       try {
-        factory.create('ai');
+        factory.create(query);
       } catch (err) {
         expect(err).toBeInstanceOf(AppError);
         expect((err as AppError).statusCode).toBe(501);
@@ -56,17 +56,21 @@ describe('SearchStrategyFactory', () => {
       }
     });
 
-    it('should throw a 400 AppError for an unknown mode', () => {
-      // Cast to bypass TypeScript's union-type guard — simulates
-      // a runtime value that slips past validation.
-      expect(() => factory.create('quantum' as 'standard' | 'ai')).toThrow(AppError);
+    it('should throw a 400 AppError for an unknown technique', () => {
+      const query = {
+        term: 'test',
+        page: 1,
+        limit: 20,
+        technique: 'quantum',
+      } as unknown as SearchQuery;
+      expect(() => factory.create(query)).toThrow(AppError);
 
       try {
-        factory.create('quantum' as 'standard' | 'ai');
+        factory.create(query);
       } catch (err) {
         expect(err).toBeInstanceOf(AppError);
         expect((err as AppError).statusCode).toBe(400);
-        expect((err as AppError).message).toContain('Unknown search mode');
+        expect((err as AppError).message).toContain('Unknown search technique');
       }
     });
   });

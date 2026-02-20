@@ -1,31 +1,12 @@
 /**
- * Seed CLI Script — Standalone Data Ingestion Tool
+ * Seed CLI Script — Standalone Data Ingestion
  * Layer: Entry Point (CLI, not HTTP)
  *
- * This script is the primary way to load ABR XML data into the database.
- * It runs directly from the terminal (not through the HTTP server) via:
- *
- *   npm run seed                                               # default file
- *   npm run seed -- --file ./temp/data/20260211_Public20.xml   # custom file
- *   npm run seed -- --migrate                                  # run migrations first
- *
- * What it does:
- *   1. Validates the XML file exists and prints its size.
- *   2. Optionally runs database migrations (--migrate flag).
- *   3. Spawns the ETL worker thread (same one used by the HTTP ingestion
- *      endpoint) and streams progress to the console in real-time.
- *   4. On completion, prints a summary with total records, duration, and
- *      average throughput (records per second).
- *
- * Why a standalone script instead of just the HTTP endpoint?
- *   - Initial data seeding (580MB+) can take minutes. A CLI script gives
- *     you real-time progress feedback, doesn't depend on the HTTP server
- *     being up, and can be run in CI/CD pipelines or cron jobs.
- *   - The HTTP endpoint is better for on-demand incremental ingestion
- *     triggered by an admin UI.
- *
- * The script reuses the exact same ETL worker thread (etlWorker.ts) and
- * BatchProcessor as the HTTP path — no code duplication.
+ * I’m the main way we load ABR XML: npm run seed [--file path] [--migrate].
+ * I check the file exists, optionally run migrations, then spawn the same
+ * ETL worker the HTTP ingest endpoint uses and stream progress to the
+ * console. When it’s done I print counts and throughput. I’m built for
+ * initial bulk loads and CI; the HTTP endpoint is for on-demand ingest.
  */
 import 'dotenv/config';
 
@@ -45,7 +26,7 @@ function getArg(flag: string, fallback: string): string {
 
 const hasFlag = (flag: string): boolean => args.includes(flag);
 
-const defaultFile = path.resolve(config.etl.dataDir, '20260211_Public20_Sample.xml');
+const defaultFile = path.resolve(config.etl.dataDir, '20260211_Public20.xml');
 const filePath = path.resolve(getArg('--file', defaultFile));
 const runMigrations = hasFlag('--migrate');
 
