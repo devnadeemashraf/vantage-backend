@@ -21,14 +21,20 @@ import {
   XmlDataSourceAdapter,
 } from './XmlDataSourceAdapter';
 
-const { filePath, dbConfig, batchSize } = workerData as {
+const { filePath, dbConfig, batchSize, etlOptions } = workerData as {
   filePath: string;
   dbConfig: { url: string; ssl: boolean; pool: { min: number; max: number } };
   batchSize: number;
+  etlOptions?: {
+    retryAttempts: number;
+    retryDelayMs: number;
+    flushDelayMs: number;
+    poolIdleTimeoutMs: number;
+  };
 };
 
 const adapter = new XmlDataSourceAdapter();
-const processor = new BatchProcessor(dbConfig, batchSize);
+const processor = new BatchProcessor(dbConfig, batchSize, etlOptions);
 
 // Parser state: current record, element stack (for parent context), and text accumulator
 let currentRecord: RawAbrRecord | null = null;
@@ -168,11 +174,12 @@ function handleRecordClose(): void {
   if (!currentRecord || !currentRecord.abn) return;
 
   const entity = adapter.normalize(currentRecord);
+  const abnForError = entity.abn;
   // Fire-and-forget add(); the batch buffer absorbs backpressure if DB is slower than parsing.
   processor.add(entity).catch((err) => {
     parentPort?.postMessage({
       type: 'error',
-      message: `Failed to process ABN ${currentRecord?.abn}: ${err instanceof Error ? err.message : String(err)}`,
+      message: `Failed to process ABN ${abnForError}: ${err instanceof Error ? err.message : String(err)}`,
     });
   });
 

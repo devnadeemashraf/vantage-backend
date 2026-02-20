@@ -26,8 +26,6 @@ const envSchema = z.object({
 
   /** Full PostgreSQL connection URL (e.g. postgres://user:password@host:5432/dbname). */
   DATABASE_URL: z.string().min(1).default('postgres://postgres:@localhost:5432/vantage'),
-  /** Enable SSL for the database connection (e.g. required by managed Postgres). Default false. */
-  DB_SSL: z.coerce.boolean().default(false),
 
   DB_POOL_MIN: z.coerce.number().default(2),
   DB_POOL_MAX: z.coerce.number().default(10),
@@ -38,6 +36,14 @@ const envSchema = z.object({
 
   ETL_BATCH_SIZE: z.coerce.number().default(5000),
   ETL_DATA_DIR: z.string().default('./temp'),
+  /** Number of retries per batch flush on connection errors (ECONNRESET, etc.). */
+  ETL_RETRY_ATTEMPTS: z.coerce.number().min(1).max(10).default(5),
+  /** Base delay in ms before first retry; doubles each attempt. */
+  ETL_RETRY_DELAY_MS: z.coerce.number().min(100).max(30_000).default(1000),
+  /** Pause in ms after each successful flush to avoid rate limiting the DB. */
+  ETL_FLUSH_DELAY_MS: z.coerce.number().min(0).max(5000).default(200),
+  /** Pool idle timeout in ms; release connections before Render closes them. */
+  ETL_POOL_IDLE_TIMEOUT_MS: z.coerce.number().min(10_000).max(600_000).default(240_000),
 
   /** Max candidate IDs considered for search (caps work for stable latency; also max paginatable total). */
   SEARCH_MAX_CANDIDATES: z.coerce.number().min(100).max(50_000).default(5000),
@@ -63,7 +69,6 @@ export const config = {
 
   database: {
     url: env.DATABASE_URL,
-    ssl: (env.DB_SSL = false),
     pool: {
       min: env.DB_POOL_MIN,
       max: env.DB_POOL_MAX,
@@ -81,6 +86,10 @@ export const config = {
   etl: {
     batchSize: env.ETL_BATCH_SIZE,
     dataDir: env.ETL_DATA_DIR,
+    retryAttempts: env.ETL_RETRY_ATTEMPTS,
+    retryDelayMs: env.ETL_RETRY_DELAY_MS,
+    flushDelayMs: env.ETL_FLUSH_DELAY_MS,
+    poolIdleTimeoutMs: env.ETL_POOL_IDLE_TIMEOUT_MS,
   },
 
   /** Search performance: candidate cap and short-query behaviour (see PostgresBusinessRepository). */

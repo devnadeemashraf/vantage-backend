@@ -24,7 +24,6 @@ import path from 'node:path';
 function getConnection(): Knex.PgConnectionConfig {
   const base = {
     connectionString: config.database.url,
-    ssl: config.database.ssl ? { rejectUnauthorized: false } : false,
   };
   return base;
 }

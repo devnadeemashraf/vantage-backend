@@ -88,7 +88,6 @@ async function main(): Promise<void> {
       client: 'pg',
       connection: {
         connectionString: config.database.url,
-        ssl: config.database.ssl ? { rejectUnauthorized: false } : false,
       },
     });
     await db.migrate.latest({
@@ -113,6 +112,12 @@ async function main(): Promise<void> {
         filePath,
         dbConfig: config.database,
         batchSize: config.etl.batchSize,
+        etlOptions: {
+          retryAttempts: config.etl.retryAttempts,
+          retryDelayMs: config.etl.retryDelayMs,
+          flushDelayMs: config.etl.flushDelayMs,
+          poolIdleTimeoutMs: config.etl.poolIdleTimeoutMs,
+        },
       },
       execArgv: ['--require', 'tsx/cjs'],
     });
