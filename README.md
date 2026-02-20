@@ -1,6 +1,6 @@
 # Vantage — High-Performance B2B Company Search Directory
 
-A production-grade backend that ingests the **Australian Business Register** (11.5 GB XML, 20M+ businesses) and exposes a lightning-fast search API combining full-text search, fuzzy matching, and filtered queries — all powered by PostgreSQL's native search extensions.
+A production-grade backend that ingests the **Australian Business Register** (11.5 GB XML, 20M+ businesses) and exposes a search API with full-text search (PostgreSQL `tsvector` + GIN), filtered queries, and optional baseline (ILIKE) for performance comparison.
 
 Built with **Node.js 24**, **Express 5**, **TypeScript 5.9**, and **PostgreSQL 17**.
 
@@ -8,15 +8,13 @@ Built with **Node.js 24**, **Express 5**, **TypeScript 5.9**, and **PostgreSQL 1
 
 ## Highlights
 
-| Capability                             | Implementation                                                                                      |
-| -------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| **580 MB XML ingested in ~90 seconds** | SAX streaming parser in a dedicated Worker Thread — zero main-thread blocking                       |
-| **Sub-50 ms search across 500K+ rows** | PostgreSQL `tsvector` full-text search + `pg_trgm` trigram fuzzy matching via GIN indexes           |
-| **Typo-tolerant search**               | `similarity()` catches "Plumbng" when you meant "Plumbing"                                          |
-| **Linguistic search**                  | `ts_rank()` matches "plumber" to "plumbing" via English stemming                                    |
-| **Multi-process HTTP**                 | Node.js `cluster` module forks one worker per CPU core for near-linear throughput scaling           |
-| **Layered architecture**               | Clear layer separation (Domain, Application, Infrastructure, Interfaces) with Dependency Injection  |
-| **AI-ready**                           | Abstraction layer for plugging in a Text-to-SQL engine (OpenAI, SQLCoder, etc.)                     |
+| Capability                              | Implementation                                                                                                    |
+| --------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| **~600 MB XML ingested in ~90 seconds** | SAX streaming parser in a dedicated Worker Thread — zero main-thread blocking                                     |
+| **Sub-50 ms search (optimized path)**   | PostgreSQL `tsvector` + GIN index on `search_vector`; optional `native` (ILIKE) for baseline (~350 ms on 9M rows) |
+| **Multi-process HTTP**                  | Node.js `cluster` module forks one worker per CPU core for near-linear throughput scaling                         |
+| **Layered architecture**                | Clear layer separation (Domain, Application, Infrastructure, Interfaces) with Dependency Injection                |
+| **AI-ready**                            | Abstraction layer for plugging in a Text-to-SQL engine (OpenAI, SQLCoder, etc.)                                   |
 
 ---
 
@@ -31,7 +29,7 @@ Built with **Node.js 24**, **Express 5**, **TypeScript 5.9**, and **PostgreSQL 1
 │   Routes → Controllers → Middleware (Auth, Validation, Errors)  │
 ├─────────────────────────────────────────────────────────────────┤
 │                    Application Layer                            │
-│   SearchService ← SearchStrategyFactory → StandardSearchStrategy│
+│   SearchService ← SearchStrategyFactory → Native/Optimized      │
 │   IngestionService (Facade) → Worker Thread                     │
 ├─────────────────────────────────────────────────────────────────┤
 │                      Domain Layer                               │
@@ -39,8 +37,8 @@ Built with **Node.js 24**, **Express 5**, **TypeScript 5.9**, and **PostgreSQL 1
 │   IDataSourceAdapter │ ITextToSqlEngine                         │
 ├─────────────────────────────────────────────────────────────────┤
 │                   Infrastructure Layer                          │
-│   PostgresBusinessRepository │ DB Connection Pool (Singleton)   │
-│   Knex Migrations │ pg_trgm + tsvector + GIN Indexes            │
+│   PostgresBusinessRepository │ searchNative / searchOptimized   │
+│   Knex Migrations │   businesses, business_names, trigger + GIN │
 ├─────────────────────────────────────────────────────────────────┤
 │                     Workers Layer                               │
 │   ETL Worker Thread → SAX Parser → XmlAdapter → BatchProcessor  │
@@ -49,15 +47,15 @@ Built with **Node.js 24**, **Express 5**, **TypeScript 5.9**, and **PostgreSQL 1
 
 ### Design Patterns Used
 
-| Pattern                  | Where                                                | Why                                                                                                    |
-| ------------------------ | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| **Repository**           | `IBusinessRepository` / `PostgresBusinessRepository` | Decouple domain logic from database engine — swap Postgres for Elasticsearch without touching services |
-| **Strategy**             | `ISearchStrategy` / `StandardSearchStrategy`         | Swap search algorithms at runtime (standard vs AI) based on request `mode`                             |
-| **Factory**              | `SearchStrategyFactory`                              | Centralise strategy creation — adding a new search mode is one `case` statement                        |
-| **Adapter**              | `XmlDataSourceAdapter`                               | Normalize raw ABR XML into domain entities — add a JSON adapter without changing the ETL pipeline      |
-| **Facade**               | `IngestionService`                                   | Hide the complexity of worker threads, SAX parsing, and batch processing behind `ingest(filePath)`     |
-| **Singleton**            | `getDbConnection()`                                  | One connection pool per process — in a clustered setup, each worker gets its own pool                  |
-| **Dependency Injection** | `tsyringe` + Symbol tokens                           | Wire everything in one place (`container.ts`) — swap implementations by changing one line              |
+| Pattern                  | Where                                                                  | Why                                                                                                      |
+| ------------------------ | ---------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| **Repository**           | `IBusinessRepository` / `PostgresBusinessRepository`                   | Decouple domain logic from database engine — swap Postgres for Elasticsearch without touching services   |
+| **Strategy**             | `ISearchStrategy` / `NativeSearchStrategy` / `OptimizedSearchStrategy` | Swap search by request `technique`: native (ILIKE) vs optimized (tsvector + GIN); AI via `mode` (future) |
+| **Factory**              | `SearchStrategyFactory`                                                | Picks strategy from `query.technique` and `query.mode` — one new class + one `case` per technique        |
+| **Adapter**              | `XmlDataSourceAdapter`                                                 | Normalize raw ABR XML into domain entities — add a JSON adapter without changing the ETL pipeline        |
+| **Facade**               | `IngestionService`                                                     | Hide the complexity of worker threads, SAX parsing, and batch processing behind `ingest(filePath)`       |
+| **Singleton**            | `getDbConnection()`                                                    | One connection pool per process — in a clustered setup, each worker gets its own pool                    |
+| **Dependency Injection** | `tsyringe` + Symbol tokens                                             | Wire everything in one place (`container.ts`) — swap implementations by changing one line                |
 
 ---
 
@@ -79,34 +77,26 @@ Built with **Node.js 24**, **Express 5**, **TypeScript 5.9**, and **PostgreSQL 1
 
 ---
 
-## Database Performance
+## Database & Search
 
-Vantage achieves sub-50ms search latency on 500K+ rows through three PostgreSQL features working in concert:
+### Schema (migrations 001–003)
 
-### 1. Full-Text Search (`tsvector` + `to_tsquery`)
+- **`businesses`**: One row per ABN; columns include `entity_name`, `state`, `postcode`, and a **`search_vector`** (`TSVECTOR`) column. B-tree indexes on `abn_status`, `entity_type_code`, `state`, `postcode` speed up filters.
+- **`business_names`**: 1-to-many alternate names per business; FK to `businesses`, index on `business_id`.
+- **Migration 003**: Trigger maintains `search_vector` on INSERT/UPDATE (weights: entity_name A, given/family name B, state/postcode C), one-time backfill for existing rows, and a **GIN index** on `businesses(search_vector)` so full-text matches use the index.
 
-Each business row has a pre-computed `search_vector` column containing parsed, stemmed lexemes. A database trigger automatically maintains this column on every INSERT/UPDATE. The `@@` operator performs the match, and `ts_rank()` scores relevance with configurable field weights (entity name = highest, state/postcode = lowest).
+### Two search techniques
 
-### 2. Trigram Fuzzy Matching (`pg_trgm`)
+| Technique     | Query param                  | How it works                                                    | Latency (e.g. 9M rows)        |
+| ------------- | ---------------------------- | --------------------------------------------------------------- | ----------------------------- |
+| **native**    | `technique=native` (default) | `entity_name ILIKE '%term%'`; no index, sequential scan         | ~350 ms                       |
+| **optimized** | `technique=optimized`        | `search_vector @@ to_tsquery('english', …)` using the GIN index | Sub-50 ms for selective terms |
 
-The `pg_trgm` extension decomposes strings into 3-character substrings. `similarity("Plumbing", "Plumbng")` returns ~0.7, enabling typo-tolerant search without an external service like Elasticsearch.
+Both use the same filters (state, postcode, entityType, abnStatus) and pagination. Filter-only requests (no `q`) use `findWithFilters()` for both techniques.
 
-### 3. GIN Indexes (Generalized Inverted Index)
+### Configurable candidate cap
 
-GIN indexes act like a book's back-of-book index — mapping each lexeme/trigram to the rows that contain it. Three GIN indexes cover:
-
-- `entity_name` (trigram ops) — fuzzy name search
-- `search_vector` — full-text search
-- `business_names.name_text` (trigram ops) — fuzzy trading name search
-
-The search query blends both scores: **60% text rank + 40% trigram similarity**, giving the best of linguistic understanding and typo tolerance.
-
-### 4. Configurable candidate cap & short-query path
-
-To keep response time in a narrow band (e.g. for "a" vs "astonished"):
-
-- **SEARCH_MAX_CANDIDATES** (default `5000`): Maximum number of candidate IDs considered for relevance and pagination. Total results and the count query are capped at this value, so you can paginate through all of them (e.g. 5000 → 250 pages at 20 per page). Increase to allow deeper pagination; decrease to prioritise latency.
-- **SEARCH_SHORT_QUERY_MAX_LENGTH** (default `2`): Terms with this many characters or fewer (e.g. `"a"`, `"ab"`) use a fast prefix-only path (`entity_name ILIKE term%`) instead of full-text + trigram, avoiding runaway matches and keeping latency stable.
+- **SEARCH_MAX_CANDIDATES** (env: `SEARCH_MAX_CANDIDATES`, default `5000`): Caps the number of candidate rows used for total count and pagination. You can still request "next 100" results; the cap keeps count and data queries bounded for consistent response times.
 
 ---
 
@@ -140,11 +130,12 @@ src/
 │   │   ├── connection.ts          # Singleton connection pool
 │   │   └── migrations/            # Versioned schema changes (001, 002, 003)
 │   └── repositories/
-│       └── PostgresBusinessRepository.ts  # Full-text + fuzzy search implementation
+│       └── PostgresBusinessRepository.ts  # searchNative (ILIKE), searchOptimized (tsvector @@), findWithFilters
 │
 ├── application/                   # Use cases and orchestration
 │   ├── strategies/
-│   │   └── StandardSearchStrategy.ts
+│   │   ├── NativeSearchStrategy.ts    # ILIKE baseline
+│   │   └── OptimizedSearchStrategy.ts  # tsvector + GIN
 │   ├── factories/
 │   │   └── SearchStrategyFactory.ts
 │   └── services/
@@ -183,8 +174,8 @@ src/
 
 ```bash
 # 1. Clone and install
-git clone <repo-url>
-cd backend
+git clone https://github.com/devnadeemashraf/vantage-backend.git
+cd vantage-backend
 npm install
 
 # 2. Configure environment
@@ -197,8 +188,9 @@ docker compose up -d
 # 4. Run migrations
 npm run migrate
 
-# 5. Seed the database (580MB XML file in ./temp/)
-npm run seed -- --file ./temp/20260211_Public20.xml
+# 5. Seed the database (580MB XML file in ./temp/data)
+# NOTE: You have to download the dataset manually and place it in the ~/temp/data path
+npm run seed -- --file ./temp/data/20260211_Public20.xml
 
 # 6. Start the server
 npm run dev
@@ -248,7 +240,7 @@ GET /api/v1/businesses/search?q=plumbing&state=NSW&page=1&limit=20
 Query Parameters:
 | Param | Type | Description |
 |---|---|---|
-| `q` | string | Search term (full-text + fuzzy) |
+| `q` | string | Search term (matched by ILIKE or full-text depending on `technique`) |
 | `state` | string | Filter by Australian state (NSW, VIC, QLD...) |
 | `postcode` | string | Filter by postcode |
 | `entityType` | string | Filter by entity type code (IND, PRV, PUB...) |
@@ -280,7 +272,7 @@ GET /api/v1/businesses/12345678901
 POST /api/v1/ingest
 Content-Type: application/json
 
-{ "filePath": "./temp/20260211_Public20.xml" }
+{ "filePath": "./temp/data/20260211_Public20.xml" }
 ```
 
 ### Health Check
@@ -328,18 +320,14 @@ Key design decisions:
 
 The architecture is designed to scale to 20+ ingested XML files (12+ GB total, 16M+ rows):
 
-| Concern                 | Current                          | Scale Strategy                                              |
-| ----------------------- | -------------------------------- | ----------------------------------------------------------- |
-| **Search latency**      | GIN indexes + composite scoring  | Add `pg_partman` range partitioning by state or entity_type |
-| **Connection pressure** | 10 connections/worker            | PgBouncer connection pooler in front of PostgreSQL          |
-| **Read throughput**     | Cluster module (N workers)       | Read replicas + load balancer                               |
-| **Write throughput**    | Chunked upserts                  | `COPY` protocol for initial loads, upserts for incremental  |
-| **AI search**           | Interface stub                   | Plug in SQLCoder or OpenAI wrapper via `ITextToSqlEngine`   |
-| **Caching**             | None (fast enough for prototype) | Redis with cache-aside pattern on hot search queries        |
-| **Monitoring**          | Pino JSON logs                   | Prometheus metrics + Grafana dashboards                     |
+| Concern                 | Current                                      | Scale Strategy                                                     |
+| ----------------------- | -------------------------------------------- | ------------------------------------------------------------------ |
+| **Search latency**      | GIN on `search_vector` (optimized technique) | Add `pg_partman` partitioning; optional pg_trgm for typo tolerance |
+| **Connection pressure** | 10 connections/worker                        | PgBouncer connection pooler in front of PostgreSQL                 |
+| **Read throughput**     | Cluster module (N workers)                   | Read replicas + load balancer                                      |
+| **Write throughput**    | Chunked upserts                              | `COPY` protocol for initial loads, upserts for incremental         |
+| **AI search**           | Interface stub                               | Plug in SQLCoder or OpenAI wrapper via `ITextToSqlEngine`          |
+| **Caching**             | None (fast enough for prototype)             | Redis with cache-aside pattern on hot search queries               |
+| **Monitoring**          | Pino JSON logs                               | Prometheus metrics + Grafana dashboards                            |
 
 ---
-
-## License
-
-ISC
