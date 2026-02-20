@@ -2,16 +2,18 @@
  * ETL Worker Thread — XML Ingestion Engine
  * Layer: Workers (ETL)
  *
- * I run in a separate worker thread (spawned by IngestionService or the seed
- * script), not in the HTTP process. I use SAX so we never load the full 580MB
+ * I run in a separate worker thread. I use SAX so we never load the full 580MB
  * into memory — we stream and react to opentag/text/closetag events. elementStack
- * tracks where we are in the tree so we can tell MainEntity’s NonIndividualNameText
- * from OtherEntity’s (same tag name, different parent). Main thread sends
- * workerData (filePath, dbConfig, batchSize); we postMessage progress, done,
- * or error. Pipeline: FileReadStream → SAX → Adapter → BatchProcessor → PostgreSQL.
+ * tracks where we are so we can tell MainEntity’s NonIndividualNameText from
+ * OtherEntity’s. Pipeline: FileReadStream → SAX → Adapter → BatchProcessor → PostgreSQL.
+ *
+ * Backpressure: we await processor.add() and pause the file stream while the DB
+ * write (or flush) is in progress, then resume. So parsing never runs ahead of
+ * writes — no overlapping flushes, no unbounded concurrency, no pool exhaustion.
  */
 import { createReadStream } from 'fs';
 import sax from 'sax';
+import type { Readable } from 'stream';
 import { parentPort, workerData } from 'worker_threads';
 
 import { BatchProcessor } from './batchProcessor';
@@ -44,6 +46,10 @@ let currentOtherNameType = '';
 let processed = 0;
 const startTime = Date.now();
 
+const fileStream: Readable = createReadStream(filePath, {
+  encoding: 'utf-8',
+  highWaterMark: 64 * 1024,
+});
 const parser = sax.createStream(true, { trim: true });
 
 parser.on('opentag', (node: sax.Tag) => {
@@ -86,7 +92,7 @@ parser.on('cdata', (text: string) => {
   currentText += text;
 });
 
-parser.on('closetag', (name: string) => {
+parser.on('closetag', async (name: string) => {
   if (currentRecord) {
     const text = currentText.trim();
     const parent = parentElement();
@@ -126,9 +132,21 @@ parser.on('closetag', (name: string) => {
       case 'ASICNumber':
         currentRecord.acn = text || null;
         break;
-      case 'ABR':
-        handleRecordClose();
+      case 'ABR': {
+        fileStream.pause();
+        try {
+          await handleRecordClose();
+        } catch (err) {
+          parentPort?.postMessage({
+            type: 'error',
+            message: `Failed to process ABN ${currentRecord?.abn ?? 'unknown'}: ${err instanceof Error ? err.message : String(err)}`,
+          });
+          throw err;
+        } finally {
+          fileStream.resume();
+        }
         break;
+      }
     }
   }
 
@@ -163,25 +181,22 @@ parser.on('end', async () => {
   }
 });
 
-const fileStream = createReadStream(filePath, { encoding: 'utf-8', highWaterMark: 64 * 1024 });
 fileStream.pipe(parser);
 
 function parentElement(): string {
   return elementStack.length >= 2 ? elementStack[elementStack.length - 2] : '';
 }
 
-function handleRecordClose(): void {
+/**
+ * Process one record: normalize, add to batch (and flush if full). Awaiting add()
+ * applies backpressure — the stream is paused by the caller so no further
+ * records are parsed until this write (or flush) completes.
+ */
+async function handleRecordClose(): Promise<void> {
   if (!currentRecord || !currentRecord.abn) return;
 
   const entity = adapter.normalize(currentRecord);
-  const abnForError = entity.abn;
-  // Fire-and-forget add(); the batch buffer absorbs backpressure if DB is slower than parsing.
-  processor.add(entity).catch((err) => {
-    parentPort?.postMessage({
-      type: 'error',
-      message: `Failed to process ABN ${abnForError}: ${err instanceof Error ? err.message : String(err)}`,
-    });
-  });
+  await processor.add(entity);
 
   processed++;
   if (processed % 10000 === 0) {
