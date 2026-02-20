@@ -23,14 +23,7 @@ import {
 
 const { filePath, dbConfig, batchSize } = workerData as {
   filePath: string;
-  dbConfig: {
-    host: string;
-    port: number;
-    name: string;
-    user: string;
-    password: string;
-    pool: { min: number; max: number };
-  };
+  dbConfig: { url: string; ssl: boolean; pool: { min: number; max: number } };
   batchSize: number;
 };
 

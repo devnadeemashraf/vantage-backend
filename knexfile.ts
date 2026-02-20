@@ -5,61 +5,56 @@
  * write database queries in JavaScript/TypeScript instead of raw SQL strings.
  * This file tells Knex how to connect to PostgreSQL and where to find migration files.
  *
- * The config is keyed by NODE_ENV (development / production) so the same
- * codebase works locally and on a server without code changes — only the
- * environment variables differ.
+ * Connection settings come from the same source of truth as the app: src/core/config.ts
+ * (DATABASE_URL, DB_SSL, DB_POOL_*). The config is keyed by NODE_ENV so the same
+ * codebase works locally and on a server without code changes.
  *
  * Why migrations point at `.ts` files:
  *   Migrations live as TypeScript source in src/infrastructure/database/migrations/.
- *   We run Knex CLI through `tsx` (a TypeScript executor) so it can compile
- *   and run .ts migrations on the fly — no separate build step needed.
+ *   We run Knex CLI through `tsx` so it can compile and run .ts migrations on the fly.
  *
- * This file is consumed in two ways:
- *   1. By the Knex CLI (`npm run migrate`) to run migration commands.
- *   2. By the seed script when `--migrate` flag is passed.
+ * Consumed by: Knex CLI (`npm run migrate`, `npm run migrate:rollback`) and seed when `--migrate` is passed.
  */
-import 'dotenv/config';
+
 import type { Knex } from 'knex';
 
-const config: Record<string, Knex.Config> = {
+import { config } from './src/core/config';
+import path from 'node:path';
+
+function getConnection(): Knex.PgConnectionConfig {
+  const base = {
+    connectionString: config.database.url,
+    ssl: config.database.ssl ? { rejectUnauthorized: false } : false,
+  };
+  return base;
+}
+
+const knexConfig: Record<string, Knex.Config> = {
   development: {
     client: 'pg',
-    connection: {
-      host: process.env.DB_HOST || 'localhost',
-      port: parseInt(process.env.DB_PORT || '5432', 10),
-      database: process.env.DB_NAME || 'vantage',
-      user: process.env.DB_USER || 'postgres',
-      password: process.env.DB_PASSWORD || '',
-    },
+    connection: getConnection(),
     pool: {
-      min: parseInt(process.env.DB_POOL_MIN || '2', 10),
-      max: parseInt(process.env.DB_POOL_MAX || '10', 10),
+      min: config.database.pool.min,
+      max: config.database.pool.max,
     },
     migrations: {
-      directory: './src/infrastructure/database/migrations',
+      directory: path.join(__dirname, 'src/infrastructure/database/migrations'),
       extension: 'ts',
     },
   },
 
   production: {
     client: 'pg',
-    connection: {
-      host: process.env.DB_HOST,
-      port: parseInt(process.env.DB_PORT || '5432', 10),
-      database: process.env.DB_NAME,
-      user: process.env.DB_USER,
-      password: process.env.DB_PASSWORD,
-      ssl: { rejectUnauthorized: false },
-    },
+    connection: getConnection(),
     pool: {
-      min: parseInt(process.env.DB_POOL_MIN || '2', 10),
-      max: parseInt(process.env.DB_POOL_MAX || '20', 10),
+      min: config.database.pool.min,
+      max: Math.max(config.database.pool.max, 20),
     },
     migrations: {
-      directory: './src/infrastructure/database/migrations',
+      directory: path.join(__dirname, 'src/infrastructure/database/migrations'),
       extension: 'ts',
     },
   },
 };
 
-export default config;
+export default knexConfig;

@@ -19,11 +19,8 @@ export function getDbConnection(): Knex {
     instance = knex({
       client: 'pg',
       connection: {
-        host: config.database.host,
-        port: config.database.port,
-        database: config.database.name,
-        user: config.database.user,
-        password: config.database.password,
+        connectionString: config.database.url,
+        ssl: config.database.ssl ? { rejectUnauthorized: false } : false,
       },
       pool: {
         min: config.database.pool.min,
@@ -36,10 +33,7 @@ export function getDbConnection(): Knex {
       acquireConnectionTimeout: 10000,
     });
 
-    logger.info(
-      { host: config.database.host, database: config.database.name },
-      'Database connection pool initialized',
-    );
+    logger.info({ ssl: config.database.ssl }, 'Database connection pool initialized');
   }
 
   return instance;

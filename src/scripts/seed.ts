@@ -68,7 +68,16 @@ async function main(): Promise<void> {
   log(`  File:       ${filePath}`);
   log(`  Size:       ${(fileSize / 1024 / 1024).toFixed(1)} MB`);
   log(`  Batch size: ${formatNumber(config.etl.batchSize)}`);
-  log(`  Database:   ${config.database.host}:${config.database.port}/${config.database.name}`);
+  // Log database target without exposing password (show host/db from URL)
+  const dbLabel = (() => {
+    try {
+      const u = new URL(config.database.url);
+      return `${u.hostname}:${u.port || '5432'}${u.pathname || '/vantage'}`;
+    } catch {
+      return '(from DATABASE_URL)';
+    }
+  })();
+  log(`  Database:   ${dbLabel}`);
   log('');
 
   // Optionally run migrations
@@ -78,11 +87,8 @@ async function main(): Promise<void> {
     const db = knex({
       client: 'pg',
       connection: {
-        host: config.database.host,
-        port: config.database.port,
-        database: config.database.name,
-        user: config.database.user,
-        password: config.database.password,
+        connectionString: config.database.url,
+        ssl: config.database.ssl ? { rejectUnauthorized: false } : false,
       },
     });
     await db.migrate.latest({

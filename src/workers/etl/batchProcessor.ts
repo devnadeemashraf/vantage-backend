@@ -13,12 +13,10 @@ import type { Business, BusinessRow } from '@domain/entities/Business';
 import type { BusinessNameRow } from '@domain/entities/BusinessName';
 import knex, { Knex } from 'knex';
 
-interface DbConfig {
-  host: string;
-  port: number;
-  name: string;
-  user: string;
-  password: string;
+/** Database config passed from main thread (matches config.database: url + ssl + pool). */
+export interface DbConfig {
+  url: string;
+  ssl: boolean;
   pool: { min: number; max: number };
 }
 
@@ -35,11 +33,8 @@ export class BatchProcessor {
     this.db = knex({
       client: 'pg',
       connection: {
-        host: dbConfig.host,
-        port: dbConfig.port,
-        database: dbConfig.name,
-        user: dbConfig.user,
-        password: dbConfig.password,
+        connectionString: dbConfig.url,
+        ssl: dbConfig.ssl ? { rejectUnauthorized: false } : false,
       },
       pool: { min: 1, max: 3 },
     });

@@ -24,11 +24,10 @@ const envSchema = z.object({
   PORT: z.coerce.number().default(3000),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
 
-  DB_HOST: z.string().default('localhost'),
-  DB_PORT: z.coerce.number().default(5432),
-  DB_NAME: z.string().default('vantage'),
-  DB_USER: z.string().default('postgres'),
-  DB_PASSWORD: z.string().default(''),
+  /** Full PostgreSQL connection URL (e.g. postgres://user:password@host:5432/dbname). */
+  DATABASE_URL: z.string().min(1).default('postgres://postgres:@localhost:5432/vantage'),
+  /** Enable SSL for the database connection (e.g. required by managed Postgres). Default false. */
+  DB_SSL: z.coerce.boolean().default(false),
 
   DB_POOL_MIN: z.coerce.number().default(2),
   DB_POOL_MAX: z.coerce.number().default(10),
@@ -63,11 +62,8 @@ export const config = {
   isProd: env.NODE_ENV === 'production',
 
   database: {
-    host: env.DB_HOST,
-    port: env.DB_PORT,
-    name: env.DB_NAME,
-    user: env.DB_USER,
-    password: env.DB_PASSWORD,
+    url: env.DATABASE_URL,
+    ssl: (env.DB_SSL = false),
     pool: {
       min: env.DB_POOL_MIN,
       max: env.DB_POOL_MAX,
