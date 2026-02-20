@@ -22,8 +22,11 @@ import { config } from './src/core/config';
 import path from 'node:path';
 
 function getConnection(): Knex.PgConnectionConfig {
-  const base = {
+  const base: Knex.PgConnectionConfig = {
     connectionString: config.database.url,
+    ssl: {
+      rejectUnauthorized: false,
+    },
   };
   return base;
 }

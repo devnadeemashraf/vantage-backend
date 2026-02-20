@@ -20,6 +20,9 @@ export function getDbConnection(): Knex {
       client: 'pg',
       connection: {
         connectionString: config.database.url,
+        ssl: {
+          rejectUnauthorized: false,
+        },
       },
       pool: {
         min: config.database.pool.min,
